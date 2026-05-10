@@ -1,6 +1,6 @@
--- Порожнє меню + Аім 360 (ПЛАВНИЙ)
--- F4 = сховати/показати меню
--- Правий клік = аім (слідує на 360 градусів)
+-- Порожнє меню + Аім (Жорсткий/Плавний) + ESP
+-- F4 = Меню
+-- Правий клік = Аім
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ========== GUI ==========
+-- ========== GUI СКРИПТА ==========
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local TopBar = Instance.new("Frame")
@@ -40,7 +40,7 @@ TopBar.BorderSizePixel = 0
 TopBar.Parent = Frame
 
 local Title = Instance.new("TextLabel")
-Title.Text = "   My Script (360 Aim)"
+Title.Text = "   Menu by Colin"
 Title.Size = UDim2.new(1, 0, 1, 0)
 Title.BackgroundTransparency = 1
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -104,21 +104,6 @@ function CreateTab(name)
     return Page
 end
 
-function CreateButton(parent, text, y, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Text = text
-    Btn.Size = UDim2.new(1, -20, 0, 35)
-    Btn.Position = UDim2.new(0, 10, 0, y)
-    Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    Btn.BorderSizePixel = 0
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Font = Enum.Font.Gotham
-    Btn.TextSize = 13
-    Btn.Parent = parent
-    Btn.MouseButton1Click:Connect(callback)
-    return Btn
-end
-
 function CreateToggle(parent, text, y, default, callback)
     local Toggle = Instance.new("TextButton")
     Toggle.Text = text .. ": " .. (default and "ON" or "OFF")
@@ -141,6 +126,22 @@ function CreateToggle(parent, text, y, default, callback)
     return Toggle
 end
 
+function CreateButton(parent, text, y, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Text = text
+    Btn.Size = UDim2.new(1, -20, 0, 35)
+    Btn.Position = UDim2.new(0, 10, 0, y)
+    Btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    Btn.BorderSizePixel = 0
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Font = Enum.Font.Gotham
+    Btn.TextSize = 13
+    Btn.Parent = parent
+    Btn.MouseButton1Click:Connect(callback)
+    return Btn
+end
+
+-- Керування меню
 local guiVisible = true
 CloseButton.MouseButton1Click:Connect(function()
     guiVisible = false
@@ -155,22 +156,73 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- ========== НАЛАШТУВАННЯ АІМУ ==========
-local Aimbot = {
-    Enabled = false,
-    Target = nil,
-    AimKey = Enum.UserInputType.MouseButton2, 
-    HitPart = "Head",
-    Smoothness = 0.07, -- Налаштування ПЛАВНОСТІ (від 0.01 до 0.2)
-    FOV = 200,
-    WallCheck = true,
+-- ========== НАЛАШТУВАННЯ ==========
+local Settings = {
+    AimbotEnabled = false,
+    ESPEnabled = false,
     TeamCheck = true,
-    StickyAim = true -- Слідування 360
+    WallCheck = true,
+    HitPart = "Head",
+    Smoothness = 0, -- 0 = ЖОРСТКИЙ АІМ (миттєвий), 0.1 = Плавний
+    FOV = 300
 }
 
--- ========== ФУНКЦІЇ АІМУ ==========
+-- FOV Коло
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1
+FOVCircle.Radius = Settings.FOV
+FOVCircle.Transparency = 1
+
+-- ========== ЛОГІКА ESP (Boxes) ==========
+local function CreateESP(plr)
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = Color3.fromRGB(255, 0, 0)
+    Box.Thickness = 1
+    Box.Transparency = 1
+    Box.Filled = false
+
+    local function Update()
+        local Connection
+        Connection = RunService.RenderStepped:Connect(function()
+            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 and Settings.ESPEnabled then
+                if Settings.TeamCheck and plr.Team == LocalPlayer.Team then
+                    Box.Visible = false
+                else
+                    local RootPart = plr.Character.HumanoidRootPart
+                    local Pos, OnScreen = Camera:WorldToViewportPoint(RootPart.Position)
+
+                    if OnScreen then
+                        local Size = (Camera:WorldToViewportPoint(RootPart.Position + Vector3.new(0, 3, 0)).Y - Camera:WorldToViewportPoint(RootPart.Position + Vector3.new(0, -3.5, 0)).Y)
+                        Box.Size = Vector2.new(Size / 1.5, Size)
+                        Box.Position = Vector2.new(Pos.X - Box.Size.X / 2, Pos.Y - Box.Size.Y / 2)
+                        Box.Visible = true
+                    else
+                        Box.Visible = false
+                    end
+                end
+            else
+                Box.Visible = false
+                if not plr.Parent then
+                    Box:Remove()
+                    Connection:Disconnect()
+                end
+            end
+        end)
+    end
+    coroutine.wrap(Update)()
+end
+
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then CreateESP(player) end
+end
+Players.PlayerAdded:Connect(CreateESP)
+
+-- ========== ЛОГІКА AIMBOT (Жорсткий + Плавний режим) ==========
 local function IsBehindWall(targetPart)
-    if not Aimbot.WallCheck then return false end
+    if not Settings.WallCheck then return false end
     local char = LocalPlayer.Character
     if not char then return true end
     local raycastParams = RaycastParams.new()
@@ -186,7 +238,7 @@ local function IsBehindWall(targetPart)
 end
 
 local function GetAimTarget()
-    local bestDist = Aimbot.FOV
+    local bestDist = Settings.FOV
     local bestTarget = nil
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
@@ -195,9 +247,9 @@ local function GetAimTarget()
         local char = plr.Character
         if not char then continue end
         local hum = char:FindFirstChild("Humanoid")
-        local hitPart = char:FindFirstChild(Aimbot.HitPart)
+        local hitPart = char:FindFirstChild(Settings.HitPart)
         if not (hum and hitPart) or hum.Health <= 0 then continue end
-        if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then continue end
+        if Settings.TeamCheck and plr.Team == LocalPlayer.Team then continue end
         
         local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
         if onScreen then
@@ -205,7 +257,7 @@ local function GetAimTarget()
             if screenDist < bestDist then
                 if not IsBehindWall(hitPart) then
                     bestDist = screenDist
-                    bestTarget = {Part = hitPart, Player = plr}
+                    bestTarget = hitPart
                 end
             end
         end
@@ -213,52 +265,44 @@ local function GetAimTarget()
     return bestTarget
 end
 
--- НОВА ФУНКЦІЯ ПЛАВНОГО 360 НАВЕДЕННЯ
 RunService.RenderStepped:Connect(function()
-    if Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Aimbot.AimKey) then
-        if not Aimbot.Target or not Aimbot.StickyAim then
-            Aimbot.Target = GetAimTarget()
-        end
-        
-        if Aimbot.Target and Aimbot.Target.Part and Aimbot.Target.Part.Parent then
-            local hum = Aimbot.Target.Part.Parent:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 then
-                local targetPos = Aimbot.Target.Part.Position
-                local lookVector = (targetPos - Camera.CFrame.Position).Unit
-                local newCFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + lookVector)
-                
-                -- Lerp створює плавність
-                Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Aimbot.Smoothness)
+    -- Оновлення FOV кола
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = Settings.FOV
+    FOVCircle.Visible = Settings.AimbotEnabled
+
+    if Settings.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = GetAimTarget()
+        if target then
+            local targetDirection = (target.Position - Camera.CFrame.Position).Unit
+            if Settings.Smoothness <= 0 then
+                -- ЖОРСТКИЙ (МИТТЄВИЙ) АІМ
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
             else
-                Aimbot.Target = nil
+                -- ПЛАВНИЙ АІМ
+                local smoothDir = Camera.CFrame.LookVector:Lerp(targetDirection, Settings.Smoothness)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothDir)
             end
         end
-    else
-        Aimbot.Target = nil
     end
 end)
 
--- ========== ВКЛАДКИ ТА КНОПКИ ==========
-local mainTab = CreateTab("Aimbot")
+-- ========== ВКЛАДКИ МЕНЮ ==========
+local aimTab = CreateTab("Aimbot")
+local visTab = CreateTab("Visuals")
 
-CreateToggle(mainTab, "Aimbot", 10, false, function(state)
-    Aimbot.Enabled = state
-end)
+-- Кнопки Аіму
+CreateToggle(aimTab, "Aimbot", 10, false, function(state) Settings.AimbotEnabled = state end)
+CreateToggle(aimTab, "Team Check", 50, true, function(state) Settings.TeamCheck = state end)
+CreateToggle(aimTab, "Wall Check", 90, true, function(state) Settings.WallCheck = state end)
+CreateButton(aimTab, "Target: Head", 130, function() Settings.HitPart = "Head" end)
+CreateButton(aimTab, "Target: Torso", 170, function() Settings.HitPart = "HumanoidRootPart" end)
+-- Тут важливо: Smoothness 0 = жорсткий
+CreateButton(aimTab, "Smooth: 0 (Hard)", 210, function() Settings.Smoothness = 0 end)
+CreateButton(aimTab, "Smooth: 0.08", 250, function() Settings.Smoothness = 0.08 end)
+CreateButton(aimTab, "Smooth: 0.2", 290, function() Settings.Smoothness = 0.2 end)
 
-CreateToggle(mainTab, "Team Check", 50, true, function(state)
-    Aimbot.TeamCheck = state
-end)
+-- Кнопки ESP
+CreateToggle(visTab, "ESP Boxes", 10, false, function(state) Settings.ESPEnabled = state end)
 
-CreateToggle(mainTab, "Wall Check", 90, true, function(state)
-    Aimbot.WallCheck = state
-end)
-
-CreateButton(mainTab, "Target: Head", 130, function()
-    Aimbot.HitPart = "Head"
-end)
-
-CreateButton(mainTab, "Target: Torso", 170, function()
-    Aimbot.HitPart = "HumanoidRootPart"
-end)
-
-print("360 Smooth Aim Loaded! Press F4 for Menu.")
+print("Script Loaded! F4 for Menu. Smoothness 0 = Hard Aim.")
