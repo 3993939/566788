@@ -175,6 +175,10 @@ end)
 -- Просто копіюй рядки з CreateButton/CreateToggle
 -- і в callback пиши свій код 
 
+--- СЮДИ ВСТАВЛЯЙ СВОЇ ФУНКЦІЇ ---
+-- Просто копію рядки з CreateButton/CreateToggle
+-- і в callback пиши свій код
+
 -- ========== НАЛАШТУВАННЯ АІМУ ==========
 local Aimbot = {
     Enabled = false,
@@ -256,30 +260,26 @@ end
 
 RunService.RenderStepped:Connect(PerformAim)
 
--- ========== КНОПКИ АІМУ В МЕНЮ (встав у свій mainTab) ==========
-CreateToggle(mainTab, "Aimbot", 5, false, function(state)
+-- ========== КНОПКИ В МЕНЮ ==========
+CreateToggle(mainTab, "Aimbot", 85, false, function(state)
     Aimbot.Enabled = state
     Aimbot.Target = nil
 end)
 
-CreateToggle(mainTab, "FOV Circle", 45, false, function(state)
-    Aimbot.ShowFOV = state
-end)
-
-CreateToggle(mainTab, "Team Check", 85, true, function(state)
+CreateToggle(mainTab, "Team Check", 125, true, function(state)
     Aimbot.TeamCheck = state
 end)
 
-CreateToggle(mainTab, "Wall Check", 125, true, function(state)
+CreateToggle(mainTab, "Wall Check", 165, true, function(state)
     Aimbot.WallCheck = state
 end)
 
-CreateButton(mainTab, "Target: Head", 165, function()
+CreateButton(mainTab, "Target: Head", 205, function()
     Aimbot.HitPart = "Head"
 end)
 
-CreateButton(mainTab, "Target: Torso", 205, function()
+CreateButton(mainTab, "Target: Torso", 245, function()
     Aimbot.HitPart = "HumanoidRootPart"
 end)
-        
+
 print("Empty menu loaded! F4 = hide/show")
