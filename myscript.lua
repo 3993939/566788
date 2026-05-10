@@ -1,6 +1,14 @@
--- Порожнє меню від Colin
--- Додавай свої кнопки/тогли куди треба
+-- Порожнє меню + Аім від Colin (ПОВНІСТЮ ГОТОВЕ)
+-- F4 = сховати/показати меню
+-- Правий клік = аім
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ========== GUI ==========
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local TopBar = Instance.new("Frame")
@@ -9,7 +17,6 @@ local TabFrame = Instance.new("Frame")
 local ContentFrame = Instance.new("Frame")
 local UICorner = Instance.new("UICorner")
 
--- Головний GUI
 ScreenGui.Name = "MyMenu"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = game.CoreGui
@@ -26,14 +33,12 @@ Frame.Parent = ScreenGui
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = Frame
 
--- Верхня панель
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(1, 0, 0, 30)
 TopBar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = Frame
 
--- Заголовок
 local Title = Instance.new("TextLabel")
 Title.Text = "   My Script"
 Title.Size = UDim2.new(1, 0, 1, 0)
@@ -44,7 +49,6 @@ Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Кнопка закриття
 CloseButton.Text = "×"
 CloseButton.Size = UDim2.new(0, 26, 0, 26)
 CloseButton.Position = UDim2.new(1, -28, 0, 2)
@@ -55,7 +59,6 @@ CloseButton.TextSize = 16
 CloseButton.BorderSizePixel = 0
 CloseButton.Parent = TopBar
 
--- Вкладки
 TabFrame.Name = "Tabs"
 TabFrame.Size = UDim2.new(0, 100, 1, -30)
 TabFrame.Position = UDim2.new(0, 0, 0, 30)
@@ -63,7 +66,6 @@ TabFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 TabFrame.BorderSizePixel = 0
 TabFrame.Parent = Frame
 
--- Контент
 ContentFrame.Name = "Content"
 ContentFrame.Size = UDim2.new(1, -100, 1, -30)
 ContentFrame.Position = UDim2.new(0, 100, 0, 30)
@@ -71,7 +73,6 @@ ContentFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ContentFrame.BorderSizePixel = 0
 ContentFrame.Parent = Frame
 
--- Функція створення вкладки
 function CreateTab(name)
     local Btn = Instance.new("TextButton")
     Btn.Text = name
@@ -104,7 +105,6 @@ function CreateTab(name)
     return Page
 end
 
--- Функція створення кнопки
 function CreateButton(parent, text, y, callback)
     local Btn = Instance.new("TextButton")
     Btn.Text = text
@@ -116,15 +116,13 @@ function CreateButton(parent, text, y, callback)
     Btn.Font = Enum.Font.Gotham
     Btn.TextSize = 13
     Btn.Parent = parent
-    
     Btn.MouseButton1Click:Connect(callback)
     return Btn
 end
 
--- Функція створення тоглу
 function CreateToggle(parent, text, y, default, callback)
     local Toggle = Instance.new("TextButton")
-    Toggle.Text = text .. ": OFF"
+    Toggle.Text = text .. ": " .. (default and "ON" or "OFF")
     Toggle.Size = UDim2.new(1, -20, 0, 35)
     Toggle.Position = UDim2.new(0, 10, 0, y)
     Toggle.BackgroundColor3 = default and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(140, 0, 0)
@@ -141,7 +139,6 @@ function CreateToggle(parent, text, y, default, callback)
         Toggle.BackgroundColor3 = state and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(140, 0, 0)
         callback(state)
     end)
-    
     return Toggle
 end
 
@@ -160,24 +157,8 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- ========== ПРИКЛАД ВИКОРИСТАННЯ ==========
-local mainTab = CreateTab("Головна")
-
-CreateButton(mainTab, "Привіт, світ!", 5, function()
-    print("Кнопка натиснута!")
-end)
-
-CreateToggle(mainTab, "Мій тогл", 45, false, function(state)
-    print("Тогл:", state)
-end)
-
--- ========== СЮДИ ВСТАВЛЯЙ СВОЇ ФУНКЦІЇ ==========
--- Просто копіюй рядки з CreateButton/CreateToggle
--- і в callback пиши свій код 
-
---- СЮДИ ВСТАВЛЯЙ СВОЇ ФУНКЦІЇ ---
--- Просто копію рядки з CreateButton/CreateToggle
--- і в callback пиши свій код
+-- ========== СТВОРЮЄМО ВКЛАДКУ ==========
+local mainTab = CreateTab("Aimbot")
 
 -- ========== НАЛАШТУВАННЯ АІМУ ==========
 local Aimbot = {
@@ -261,25 +242,25 @@ end
 RunService.RenderStepped:Connect(PerformAim)
 
 -- ========== КНОПКИ В МЕНЮ ==========
-CreateToggle(mainTab, "Aimbot", 85, false, function(state)
+CreateToggle(mainTab, "Aimbot", 10, false, function(state)
     Aimbot.Enabled = state
     Aimbot.Target = nil
 end)
 
-CreateToggle(mainTab, "Team Check", 125, true, function(state)
+CreateToggle(mainTab, "Team Check", 50, true, function(state)
     Aimbot.TeamCheck = state
 end)
 
-CreateToggle(mainTab, "Wall Check", 165, true, function(state)
+CreateToggle(mainTab, "Wall Check", 90, true, function(state)
     Aimbot.WallCheck = state
 end)
 
-CreateButton(mainTab, "Target: Head", 205, function()
+CreateButton(mainTab, "Target: Head", 130, function()
     Aimbot.HitPart = "Head"
 end)
 
-CreateButton(mainTab, "Target: Torso", 245, function()
+CreateButton(mainTab, "Target: Torso", 170, function()
     Aimbot.HitPart = "HumanoidRootPart"
 end)
 
-print("Empty menu loaded! F4 = hide/show")
+print("AimBot Menu loaded! F4 = hide, RightClick = aim")
