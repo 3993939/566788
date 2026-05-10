@@ -1,5 +1,5 @@
--- Universal GUI Menu + ESP + Smooth Silent Aim by Colin
--- Full package for the villagers
+-- Universal GUI Menu + ESP + Smooth Silent Aim by Colin [FIXED]
+-- Fixed: Drawing library compatibility, CoreGui access
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -7,20 +7,75 @@ local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
 
--- ========== БІБЛІОТЕКА ==========
+-- ========== БЕЗПЕЧНЕ СТВОРЕННЯ GUI ==========
+local function GetSafeGui()
+    local success, result = pcall(function()
+        if syn and syn.protect_gui then
+            return game:GetService("CoreGui")
+        end
+    end)
+    if success and result then return result end
+    
+    success, result = pcall(function()
+        if gethui then return gethui() end
+    end)
+    if success and result then return result end
+    
+    success, result = pcall(function()
+        if get_hidden_gui then return get_hidden_gui() end
+    end)
+    if success and result then return result end
+    
+    success, result = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    if success then return result end
+    
+    return nil
+end
+
+local CoreGui = GetSafeGui()
+if not CoreGui then
+    warn("Cannot access CoreGui, using PlayerGui instead")
+    CoreGui = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- ========== БЕЗПЕЧНА БІБЛІОТЕКА МАЛЮВАННЯ ==========
 local DrawingLib = {}
 DrawingLib.Objects = {}
+DrawingLib.Available = false
+
+-- Перевірка доступності Drawing
+local function CheckDrawing()
+    local success = pcall(function()
+        local test = Drawing.new("Line")
+        if test then
+            test:Remove()
+            return true
+        end
+    end)
+    return success
+end
+
+DrawingLib.Available = CheckDrawing()
 
 function DrawingLib:Create(type, props)
-    local drawing = Drawing.new(type)
-    for prop, value in pairs(props) do
-        drawing[prop] = value
+    if not DrawingLib.Available then return nil end
+    
+    local success, drawing = pcall(function()
+        local d = Drawing.new(type)
+        for prop, value in pairs(props) do
+            pcall(function() d[prop] = value end)
+        end
+        return d
+    end)
+    
+    if success and drawing then
+        table.insert(DrawingLib.Objects, drawing)
+        return drawing
     end
-    table.insert(DrawingLib.Objects, drawing)
-    return drawing
+    return nil
 end
 
 function DrawingLib:ClearAll()
@@ -58,18 +113,16 @@ local Settings = {
         MaxDistance = 3000
     },
     Visuals = {
-        FOVColor = Color3.fromRGB(255, 255, 255),
         MenuColor = Color3.fromRGB(65, 105, 225),
         AccentColor = Color3.fromRGB(255, 50, 80),
         BackgroundColor = Color3.fromRGB(30, 30, 30)
     }
 }
 
-local ESP_Cache = {}
 local Aimbot = {Target = nil, FOVCircle = nil}
-local Connections = {}
+local ESPCache = {}
 
--- ========== ESP ФУНКЦІЇ ==========
+-- ========== ESP ФУНКЦІЇ (ВИПРАВЛЕНО) ==========
 local function IsBehindWall(targetPart)
     if not Settings.Aimbot.WallCheck then return false end
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return true end
@@ -90,7 +143,10 @@ local function IsBehindWall(targetPart)
 end
 
 local function UpdateESP()
+    if not DrawingLib.Available then return end
     DrawingLib:ClearAll()
+    ESPCache = {}
+    
     if not Settings.ESP.Enabled then return end
     if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
     
@@ -106,8 +162,13 @@ local function UpdateESP()
                 local dist = (hrp.Position - rootPos).Magnitude
                 
                 if dist <= Settings.ESP.MaxDistance then
-                    if Settings.ESP.TeamCheck and plr.TeamColor == LocalPlayer.TeamColor then
-                        goto continue
+                    if Settings.ESP.TeamCheck then
+                        if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
+                            goto continue
+                        end
+                        if plr.TeamColor and LocalPlayer.TeamColor and plr.TeamColor == LocalPlayer.TeamColor then
+                            goto continue
+                        end
                     end
                     
                     local color = Settings.ESP.BoxColor
@@ -115,28 +176,26 @@ local function UpdateESP()
                     if Settings.ESP.Health then label = label .. " [" .. math.floor(hum.Health) .. " HP]" end
                     if Settings.ESP.Distance then label = label .. " [" .. math.floor(dist) .. "m]" end
                     
-                    -- Бокс
+                    local espData = {Head = head, Label = label, Color = color}
+                    
                     if Settings.ESP.Boxes then
-                        DrawingLib:Create("Square", {
-                            Color = color, Thickness = 2, Transparency = 1, Filled = false, Visible = true,
-                            Size = Vector2.new(0, 0), Position = Vector2.new(0, 0)
+                        espData.Box = DrawingLib:Create("Square", {
+                            Color = color, Thickness = 2, Transparency = 1, Filled = false, Visible = false
                         })
                     end
                     
-                    -- Трейсер
                     if Settings.ESP.Tracers then
-                        DrawingLib:Create("Line", {
-                            Color = Settings.ESP.TracerColor, Thickness = 1, Transparency = 0.8, Visible = true,
-                            From = Vector2.new(0, 0), To = Vector2.new(0, 0)
+                        espData.Tracer = DrawingLib:Create("Line", {
+                            Color = Settings.ESP.TracerColor, Thickness = 1, Transparency = 0.8, Visible = false
                         })
                     end
                     
-                    -- Текст
-                    DrawingLib:Create("Text", {
+                    espData.Text = DrawingLib:Create("Text", {
                         Color = color, Size = 14, Center = true, Outline = true,
-                        OutlineColor = Color3.new(0, 0, 0), Text = label, Visible = true,
-                        Position = Vector2.new(0, 0)
+                        OutlineColor = Color3.new(0, 0, 0), Text = label, Visible = false
                     })
+                    
+                    table.insert(ESPCache, espData)
                 end
             end
         end
@@ -145,101 +204,122 @@ local function UpdateESP()
 end
 
 local function RenderESP()
-    local index = 1
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character:FindFirstChild("Head") then
-            local head = plr.Character.Head
-            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+    if not DrawingLib.Available then return end
+    
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+    
+    for _, data in ipairs(ESPCache) do
+        if data.Head and data.Head.Parent then
+            local screenPos, onScreen = Camera:WorldToViewportPoint(data.Head.Position)
             
             if onScreen then
-                if index <= #DrawingLib.Objects then
-                    local scale = math.clamp(2000 / (Camera.CFrame.Position - head.Position).Magnitude, 0.5, 4)
-                    local boxSize = Vector2.new(math.floor(scale * 2.5), math.floor(scale * 3.5))
-                    
-                    -- Бокс
-                    if Settings.ESP.Boxes and DrawingLib.Objects[index] then
-                        DrawingLib.Objects[index].Size = boxSize
-                        DrawingLib.Objects[index].Position = Vector2.new(screenPos.X - boxSize.X/2, screenPos.Y - boxSize.Y/2)
-                    end
-                    if Settings.ESP.Boxes then index = index + 1 end
-                    
-                    -- Трейсер
-                    if Settings.ESP.Tracers and DrawingLib.Objects[index] then
-                        DrawingLib.Objects[index].From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                        DrawingLib.Objects[index].To = Vector2.new(screenPos.X, screenPos.Y + boxSize.Y/2)
-                    end
-                    if Settings.ESP.Tracers then index = index + 1 end
-                    
-                    -- Текст
-                    if DrawingLib.Objects[index] then
-                        DrawingLib.Objects[index].Position = Vector2.new(screenPos.X, screenPos.Y - boxSize.Y/2 - 20)
-                    end
-                    index = index + 1
+                local scale = math.clamp(2000 / math.max((Camera.CFrame.Position - data.Head.Position).Magnitude, 1), 0.5, 4)
+                local boxSize = Vector2.new(math.floor(scale * 2.5), math.floor(scale * 3.5))
+                
+                if data.Box then
+                    data.Box.Visible = true
+                    data.Box.Size = boxSize
+                    data.Box.Position = Vector2.new(screenPos.X - boxSize.X/2, screenPos.Y - boxSize.Y/2)
                 end
+                
+                if data.Tracer then
+                    data.Tracer.Visible = true
+                    data.Tracer.From = screenCenter
+                    data.Tracer.To = Vector2.new(screenPos.X, screenPos.Y + boxSize.Y/2)
+                end
+                
+                if data.Text then
+                    data.Text.Visible = true
+                    data.Text.Position = Vector2.new(screenPos.X, screenPos.Y - boxSize.Y/2 - 20)
+                end
+            else
+                if data.Box then data.Box.Visible = false end
+                if data.Tracer then data.Tracer.Visible = false end
+                if data.Text then data.Text.Visible = false end
             end
         end
     end
 end
 
--- ========== АІМБОТ ФУНКЦІЇ ==========
+-- ========== АІМБОТ (ВИПРАВЛЕНО) ==========
 local function GetAimTarget()
     local bestDist = Settings.Aimbot.FOV
     local bestTarget = nil
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     
     for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local hum = plr.Character:FindFirstChild("Humanoid")
-            local hitPart = plr.Character:FindFirstChild(Settings.Aimbot.HitPart)
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            
-            if hum and hitPart and hrp and hum.Health > 0 then
-                if Settings.Aimbot.TeamCheck and plr.TeamColor == LocalPlayer.TeamColor then continue end
-                
-                local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                if dist > Settings.Aimbot.MaxDistance then continue end
-                if Settings.Aimbot.WallCheck and IsBehindWall(hitPart) then continue end
-                
-                local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-                if onScreen then
-                    local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if screenDist < bestDist then
-                        bestDist = screenDist
-                        bestTarget = {Part = hitPart, Player = plr}
-                    end
-                end
-            end
+        if plr == LocalPlayer then continue end
+        if not plr.Character then continue end
+        
+        local hum = plr.Character:FindFirstChild("Humanoid")
+        local hitPart = plr.Character:FindFirstChild(Settings.Aimbot.HitPart)
+        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+        
+        if not (hum and hitPart and hrp) then continue end
+        if hum.Health <= 0 then continue end
+        
+        if Settings.Aimbot.TeamCheck then
+            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+            if plr.TeamColor and LocalPlayer.TeamColor and plr.TeamColor == LocalPlayer.TeamColor then continue end
+        end
+        
+        if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then continue end
+        local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+        if dist > Settings.Aimbot.MaxDistance then continue end
+        if Settings.Aimbot.WallCheck and IsBehindWall(hitPart) then continue end
+        
+        local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
+        if not onScreen then continue end
+        
+        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+        if screenDist < bestDist then
+            bestDist = screenDist
+            bestTarget = {Part = hitPart, Player = plr}
         end
     end
+    
     return bestTarget
 end
 
 local function PerformAim()
-    local aimKey = Settings.Aimbot.AimKey
-    if aimKey == "MouseButton1" then aimKey = "MouseButton1"
-    elseif aimKey == "MouseButton2" then aimKey = "MouseButton2"
-    else aimKey = "MouseButton1" end
-    
-    if Settings.Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType[aimKey]) then
-        if not Aimbot.Target or not Aimbot.Target.Part.Parent then
-            Aimbot.Target = GetAimTarget()
-        end
-        if Aimbot.Target then
-            local targetDir = (Aimbot.Target.Part.Position - Camera.CFrame.Position).Unit
-            local smoothDir = Camera.CFrame.LookVector:Lerp(targetDir, Settings.Aimbot.Smoothness)
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothDir)
-        end
-    else
+    if not Settings.Aimbot.Enabled then
         Aimbot.Target = nil
+        return
+    end
+    
+    local aimKeyPressed = false
+    pcall(function()
+        if Settings.Aimbot.AimKey == "MouseButton2" then
+            aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+        elseif Settings.Aimbot.AimKey == "MouseButton1" then
+            aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+        end
+    end)
+    
+    if not aimKeyPressed then
+        Aimbot.Target = nil
+        return
+    end
+    
+    if not Aimbot.Target or not Aimbot.Target.Part or not Aimbot.Target.Part.Parent then
+        Aimbot.Target = GetAimTarget()
+    end
+    
+    if Aimbot.Target and Aimbot.Target.Part then
+        local targetDir = (Aimbot.Target.Part.Position - Camera.CFrame.Position).Unit
+        local smoothDir = Camera.CFrame.LookVector:Lerp(targetDir, Settings.Aimbot.Smoothness)
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothDir)
     end
 end
 
 local function UpdateFOVCircle()
     if Aimbot.FOVCircle then
-        Aimbot.FOVCircle.Visible = Settings.Aimbot.Enabled and Settings.Aimbot.ShowFOV
-        Aimbot.FOVCircle.Radius = Settings.Aimbot.FOV
-        Aimbot.FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        Aimbot.FOVCircle.Color = Settings.Aimbot.FOVColor
+        pcall(function()
+            Aimbot.FOVCircle.Visible = Settings.Aimbot.Enabled and Settings.Aimbot.ShowFOV
+            Aimbot.FOVCircle.Radius = Settings.Aimbot.FOV
+            Aimbot.FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            Aimbot.FOVCircle.Color = Settings.Aimbot.FOVColor
+        end)
     end
 end
 
@@ -247,7 +327,11 @@ end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ColinsMenu"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = (syn and syn.protect_gui and CoreGui or gethui and gethui() or CoreGui)
+
+-- Безпечний Parent
+pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 500, 0, 350)
@@ -309,17 +393,19 @@ local Tabs = {}
 local TabButtons = {}
 local ActiveTab = "ESP"
 
--- Функція перемикання вкладок
 local function SwitchTab(tabName)
     ActiveTab = tabName
-    for _, frame in pairs(Tabs) do frame.Visible = false end
-    if Tabs[tabName] then Tabs[tabName].Visible = true end
+    for _, frame in pairs(Tabs) do
+        frame.Visible = false
+    end
+    if Tabs[tabName] then
+        Tabs[tabName].Visible = true
+    end
     for name, btn in pairs(TabButtons) do
         btn.BackgroundColor3 = name == tabName and Settings.Visuals.MenuColor or Color3.fromRGB(50, 50, 50)
     end
 end
 
--- Створення вкладок
 local tabNames = {"ESP", "Aimbot", "Visuals"}
 for i, name in ipairs(tabNames) do
     local btn = Instance.new("TextButton")
@@ -346,7 +432,9 @@ for i, name in ipairs(tabNames) do
     frame.Parent = ContentFrame
     Tabs[name] = frame
     
-    btn.MouseButton1Click:Connect(function() SwitchTab(name) end)
+    btn.MouseButton1Click:Connect(function()
+        SwitchTab(name)
+    end)
 end
 
 -- Функція створення тоглу
@@ -389,35 +477,21 @@ local function CreateToggle(parent, name, settingTable, settingKey, yOffset)
     return frame
 end
 
--- Створення тоглів ESP
-local espToggles = {
-    {"ESP Enabled", "Enabled"},
-    {"Show Players", "Players"},
-    {"Team Check", "TeamCheck"},
-    {"Show Health", "Health"},
-    {"Show Distance", "Distance"},
-    {"Show Boxes", "Boxes"},
-    {"Show Tracers", "Tracers"},
-    {"Show Head Dots", "HeadDots"}
-}
+-- ESP тогли
+CreateToggle(Tabs["ESP"], "ESP Enabled", Settings.ESP, "Enabled", 0)
+CreateToggle(Tabs["ESP"], "Team Check", Settings.ESP, "TeamCheck", 35)
+CreateToggle(Tabs["ESP"], "Show Health", Settings.ESP, "Health", 70)
+CreateToggle(Tabs["ESP"], "Show Distance", Settings.ESP, "Distance", 105)
+CreateToggle(Tabs["ESP"], "Show Boxes", Settings.ESP, "Boxes", 140)
+CreateToggle(Tabs["ESP"], "Show Tracers", Settings.ESP, "Tracers", 175)
 
-for i, toggle in ipairs(espToggles) do
-    CreateToggle(Tabs["ESP"], toggle[1], Settings.ESP, toggle[2], (i-1)*35)
-end
+-- Aimbot тогли
+CreateToggle(Tabs["Aimbot"], "Aimbot Enabled", Settings.Aimbot, "Enabled", 0)
+CreateToggle(Tabs["Aimbot"], "Show FOV Circle", Settings.Aimbot, "ShowFOV", 35)
+CreateToggle(Tabs["Aimbot"], "Team Check", Settings.Aimbot, "TeamCheck", 70)
+CreateToggle(Tabs["Aimbot"], "Wall Check", Settings.Aimbot, "WallCheck", 105)
 
--- Створення тоглів Aimbot
-local aimToggles = {
-    {"Aimbot Enabled", "Enabled"},
-    {"Show FOV Circle", "ShowFOV"},
-    {"Team Check", "TeamCheck"},
-    {"Wall Check", "WallCheck"}
-}
-
-for i, toggle in ipairs(aimToggles) do
-    CreateToggle(Tabs["Aimbot"], toggle[1], Settings.Aimbot, toggle[2], (i-1)*35)
-end
-
--- Функція слайдера
+-- Слайдери для Aimbot
 local function CreateSlider(parent, name, settingTable, settingKey, minVal, maxVal, yOffset)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(1, -10, 0, 50)
@@ -457,54 +531,61 @@ local function CreateSlider(parent, name, settingTable, settingKey, minVal, maxV
     sliderBtn.Position = UDim2.new(ratio, -7, 0.5, -7)
     sliderBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     sliderBtn.BorderSizePixel = 0
-    sliderBtn.Text = ""
     sliderBtn.Parent = sliderFrame
     
     local dragging = false
-    sliderBtn.MouseButton1Down:Connect(function() dragging = true end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-    end)
     
-    sliderBtn.MouseButton1Click:Connect(function()
+    local function updateSlider(input)
         local mousePos = UserInputService:GetMouseLocation()
         local sliderPos = sliderFrame.AbsolutePosition.X
         local sliderWidth = sliderFrame.AbsoluteSize.X
-        local ratio = math.clamp((mousePos.X - sliderPos) / sliderWidth, 0, 1)
+        local ratio = math.clamp((mousePos.X - sliderPos) / math.max(sliderWidth, 1), 0, 1)
         local value = minVal + (maxVal - minVal) * ratio
+        if settingKey == "Smoothness" then
+            value = math.round(value * 100) / 100
+        else
+            value = math.floor(value)
+        end
         settingTable[settingKey] = value
-        label.Text = name .. ": " .. string.format("%.2f", value)
+        label.Text = name .. ": " .. tostring(value)
         sliderFill.Size = UDim2.new(ratio, 0, 1, 0)
         sliderBtn.Position = UDim2.new(ratio, -7, 0.5, -7)
+    end
+    
+    sliderBtn.MouseButton1Down:Connect(function()
+        dragging = true
+        updateSlider()
     end)
     
     sliderFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
     end)
     
-    RunService.RenderStepped:Connect(function()
-        if dragging then
-            local mousePos = UserInputService:GetMouseLocation()
-            local sliderPos = sliderFrame.AbsolutePosition.X
-            local sliderWidth = sliderFrame.AbsoluteSize.X
-            local ratio = math.clamp((mousePos.X - sliderPos) / sliderWidth, 0, 1)
-            local value = minVal + (maxVal - minVal) * ratio
-            settingTable[settingKey] = value
-            label.Text = name .. ": " .. string.format("%.2f", value)
-            sliderFill.Size = UDim2.new(ratio, 0, 1, 0)
-            sliderBtn.Position = UDim2.new(ratio, -7, 0.5, -7)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
         end
     end)
 end
 
-CreateSlider(Tabs["Aimbot"], "Smoothness", Settings.Aimbot, "Smoothness", 0.01, 1, 140)
-CreateSlider(Tabs["Aimbot"], "FOV Radius", Settings.Aimbot, "FOV", 50, 500, 195)
-CreateSlider(Tabs["Aimbot"], "Max Distance", Settings.Aimbot, "MaxDistance", 500, 10000, 250)
+CreateSlider(Tabs["Aimbot"], "Smoothness", Settings.Aimbot, "Smoothness", 0.01, 1, 150)
+CreateSlider(Tabs["Aimbot"], "FOV Radius", Settings.Aimbot, "FOV", 50, 500, 205)
+CreateSlider(Tabs["Aimbot"], "Max Distance", Settings.Aimbot, "MaxDistance", 500, 10000, 260)
 
--- Закриття меню
-CloseButton.MouseButton1Click:Connect(function() ScreenGui:Enabled = false end)
+-- Закриття
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui.Enabled = false
+end)
 
--- Тогл меню на F4
+-- Тогл F4
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.KeyCode == Enum.KeyCode.F4 then
@@ -512,16 +593,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Створення FOV кола
-Aimbot.FOVCircle = DrawingLib:Create("Circle", {
-    Radius = Settings.Aimbot.FOV,
-    Position = Vector2.new(0, 0),
-    Color = Settings.Aimbot.FOVColor,
-    Transparency = 0.7,
-    Thickness = 1,
-    Filled = false,
-    Visible = false
-})
+-- FOV коло
+if DrawingLib.Available then
+    Aimbot.FOVCircle = DrawingLib:Create("Circle", {
+        Radius = Settings.Aimbot.FOV,
+        Position = Vector2.new(0, 0),
+        Color = Settings.Aimbot.FOVColor,
+        Transparency = 0.7,
+        Thickness = 1,
+        Filled = false,
+        Visible = false
+    })
+end
 
 -- Головні цикли
 RunService.Heartbeat:Connect(function()
@@ -534,10 +617,10 @@ RunService.RenderStepped:Connect(function()
     RenderESP()
 end)
 
--- Очищення при закритті
+-- Безпечне очищення
 ScreenGui.Destroying:Connect(function()
     DrawingLib:ClearAll()
-    for _, conn in pairs(Connections) do pcall(function() conn:Disconnect() end) end
 end)
 
-print("Colin's Universal Menu Loaded! Press F4 to toggle menu.")
+print("Colin's Universal Menu [FIXED] Loaded! F4 = toggle menu.")
+print("ESP: " .. (DrawingLib.Available and "Drawing OK" or "Drawing disabled, GUI only"))
