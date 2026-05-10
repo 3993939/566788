@@ -173,6 +173,113 @@ end)
 
 -- ========== СЮДИ ВСТАВЛЯЙ СВОЇ ФУНКЦІЇ ==========
 -- Просто копіюй рядки з CreateButton/CreateToggle
--- і в callback пиши свій код
+-- і в callback пиши свій код 
 
+-- ========== НАЛАШТУВАННЯ АІМУ ==========
+local Aimbot = {
+    Enabled = false,
+    Target = nil,
+    AimKey = "MouseButton2",
+    HitPart = "Head",
+    Smoothness = 0.08,
+    FOV = 200,
+    ShowFOV = false,
+    WallCheck = true,
+    TeamCheck = true
+}
+
+-- ========== ФУНКЦІЇ АІМУ ==========
+local function IsBehindWall(targetPart)
+    if not Aimbot.WallCheck then return false end
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return true end
+    local origin = LocalPlayer.Character.Head.Position
+    local direction = (targetPart.Position - origin).Unit * 3000
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    if raycastResult then
+        return not raycastResult.Instance:IsDescendantOf(targetPart.Parent)
+    end
+    return true
+end
+
+local function GetAimTarget()
+    local bestDist = Aimbot.FOV
+    local bestTarget = nil
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer then continue end
+        if not plr.Character then continue end
+        local hum = plr.Character:FindFirstChild("Humanoid")
+        local hitPart = plr.Character:FindFirstChild(Aimbot.HitPart)
+        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+        if not (hum and hitPart and hrp) then continue end
+        if hum.Health <= 0 then continue end
+        if Aimbot.TeamCheck then
+            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
+            if plr.TeamColor and LocalPlayer.TeamColor and plr.TeamColor == LocalPlayer.TeamColor then continue end
+        end
+        if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then continue end
+        local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+        if dist > 3000 then continue end
+        if Aimbot.WallCheck and IsBehindWall(hitPart) then continue end
+        local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
+        if not onScreen then continue end
+        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+        if screenDist < bestDist then
+            bestDist = screenDist
+            bestTarget = {Part = hitPart, Player = plr}
+        end
+    end
+    return bestTarget
+end
+
+local function PerformAim()
+    if not Aimbot.Enabled then Aimbot.Target = nil; return end
+    local aimKeyPressed = false
+    if Aimbot.AimKey == "MouseButton2" then
+        aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+    elseif Aimbot.AimKey == "MouseButton1" then
+        aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+    end
+    if not aimKeyPressed then Aimbot.Target = nil; return end
+    if not Aimbot.Target or not Aimbot.Target.Part or not Aimbot.Target.Part.Parent then
+        Aimbot.Target = GetAimTarget()
+    end
+    if Aimbot.Target and Aimbot.Target.Part then
+        local targetDir = (Aimbot.Target.Part.Position - Camera.CFrame.Position).Unit
+        local smoothDir = Camera.CFrame.LookVector:Lerp(targetDir, Aimbot.Smoothness)
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothDir)
+    end
+end
+
+RunService.RenderStepped:Connect(PerformAim)
+
+-- ========== КНОПКИ АІМУ В МЕНЮ (встав у свій mainTab) ==========
+CreateToggle(mainTab, "Aimbot", 5, false, function(state)
+    Aimbot.Enabled = state
+    Aimbot.Target = nil
+end)
+
+CreateToggle(mainTab, "FOV Circle", 45, false, function(state)
+    Aimbot.ShowFOV = state
+end)
+
+CreateToggle(mainTab, "Team Check", 85, true, function(state)
+    Aimbot.TeamCheck = state
+end)
+
+CreateToggle(mainTab, "Wall Check", 125, true, function(state)
+    Aimbot.WallCheck = state
+end)
+
+CreateButton(mainTab, "Target: Head", 165, function()
+    Aimbot.HitPart = "Head"
+end)
+
+CreateButton(mainTab, "Target: Torso", 205, function()
+    Aimbot.HitPart = "HumanoidRootPart"
+end)
+        
 print("Empty menu loaded! F4 = hide/show")
