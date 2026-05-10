@@ -1,6 +1,6 @@
--- Порожнє меню + Аім від Colin (ВИПРАВЛЕНО)
+-- Порожнє меню + Аім 360 (ПЛАВНИЙ)
 -- F4 = сховати/показати меню
--- Правий клік = аім
+-- Правий клік = аім (слідує на 360 градусів)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -19,7 +19,6 @@ local UICorner = Instance.new("UICorner")
 
 ScreenGui.Name = "MyMenu"
 ScreenGui.ResetOnSpawn = false
--- Використовуємо pcall, щоб скрипт не впав, якщо доступу до CoreGui немає (залежить від екзекутора)
 pcall(function() ScreenGui.Parent = game.CoreGui end) 
 
 Frame.Name = "Main"
@@ -28,7 +27,7 @@ Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
 Frame.Active = true
-Frame.Draggable = true -- Працює в більшості старих екзекуторів
+Frame.Draggable = true
 Frame.Parent = ScreenGui
 
 UICorner.CornerRadius = UDim.new(0, 8)
@@ -41,7 +40,7 @@ TopBar.BorderSizePixel = 0
 TopBar.Parent = Frame
 
 local Title = Instance.new("TextLabel")
-Title.Text = "   My Script"
+Title.Text = "   My Script (360 Aim)"
 Title.Size = UDim2.new(1, 0, 1, 0)
 Title.BackgroundTransparency = 1
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -93,7 +92,7 @@ function CreateTab(name)
     Page.BackgroundTransparency = 1
     Page.ScrollBarThickness = 3
     Page.CanvasSize = UDim2.new(0, 0, 0, 400)
-    Page.Visible = (tabCount == 1) -- Перша вкладка відразу видима
+    Page.Visible = (tabCount == 1)
     Page.Parent = ContentFrame
     
     Btn.MouseButton1Click:Connect(function()
@@ -102,11 +101,9 @@ function CreateTab(name)
         end
         Page.Visible = true
     end)
-    
     return Page
 end
 
--- Інші функції GUI без змін (CreateButton, CreateToggle...)
 function CreateButton(parent, text, y, callback)
     local Btn = Instance.new("TextButton")
     Btn.Text = text
@@ -144,7 +141,6 @@ function CreateToggle(parent, text, y, default, callback)
     return Toggle
 end
 
--- Керування видимістю
 local guiVisible = true
 CloseButton.MouseButton1Click:Connect(function()
     guiVisible = false
@@ -163,30 +159,27 @@ end)
 local Aimbot = {
     Enabled = false,
     Target = nil,
-    AimKey = Enum.UserInputType.MouseButton2, -- Виправлено: краще використовувати Enum
+    AimKey = Enum.UserInputType.MouseButton2, 
     HitPart = "Head",
-    Smoothness = 0.2, -- Було занадто мало, камера могла "дьоргатись"
+    Smoothness = 0.07, -- Налаштування ПЛАВНОСТІ (від 0.01 до 0.2)
     FOV = 200,
     WallCheck = true,
-    TeamCheck = true
+    TeamCheck = true,
+    StickyAim = true -- Слідування 360
 }
 
--- ========== ФУНКЦІЇ АІМУ (ВИПРАВЛЕНО) ==========
+-- ========== ФУНКЦІЇ АІМУ ==========
 local function IsBehindWall(targetPart)
     if not Aimbot.WallCheck then return false end
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("Head") then return true end
-    
+    if not char then return true end
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude -- Новий стандарт замість Blacklist
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     raycastParams.FilterDescendantsInstances = {char, Camera}
-    
     local origin = Camera.CFrame.Position
     local direction = (targetPart.Position - origin)
     local raycastResult = workspace:Raycast(origin, direction, raycastParams)
-    
     if raycastResult then
-        -- Якщо промінь влучив у щось, що не є частиною гравця — значить там стіна
         return not raycastResult.Instance:IsDescendantOf(targetPart.Parent)
     end
     return false
@@ -201,11 +194,9 @@ local function GetAimTarget()
         if plr == LocalPlayer then continue end
         local char = plr.Character
         if not char then continue end
-        
         local hum = char:FindFirstChild("Humanoid")
         local hitPart = char:FindFirstChild(Aimbot.HitPart)
         if not (hum and hitPart) or hum.Health <= 0 then continue end
-        
         if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then continue end
         
         local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
@@ -222,26 +213,32 @@ local function GetAimTarget()
     return bestTarget
 end
 
+-- НОВА ФУНКЦІЯ ПЛАВНОГО 360 НАВЕДЕННЯ
 RunService.RenderStepped:Connect(function()
     if Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Aimbot.AimKey) then
-        if not Aimbot.Target or not Aimbot.Target.Part or not Aimbot.Target.Part.Parent or Aimbot.Target.Player.Character.Humanoid.Health <= 0 then
+        if not Aimbot.Target or not Aimbot.StickyAim then
             Aimbot.Target = GetAimTarget()
         end
         
-        if Aimbot.Target and Aimbot.Target.Part then
-            local targetPos = Camera:WorldToViewportPoint(Aimbot.Target.Part.Position)
-            local mousePos = UserInputService:GetMouseLocation()
-            -- Плавне наведення миші (працює краще для легітності)
-            local moveX = (targetPos.X - mousePos.X) * Aimbot.Smoothness
-            local moveY = (targetPos.Y - mousePos.Y) * Aimbot.Smoothness
-            mousemoverel(moveX, moveY) -- Функція більшості екзекуторів
+        if Aimbot.Target and Aimbot.Target.Part and Aimbot.Target.Part.Parent then
+            local hum = Aimbot.Target.Part.Parent:FindFirstChild("Humanoid")
+            if hum and hum.Health > 0 then
+                local targetPos = Aimbot.Target.Part.Position
+                local lookVector = (targetPos - Camera.CFrame.Position).Unit
+                local newCFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + lookVector)
+                
+                -- Lerp створює плавність
+                Camera.CFrame = Camera.CFrame:Lerp(newCFrame, Aimbot.Smoothness)
+            else
+                Aimbot.Target = nil
+            end
         end
     else
         Aimbot.Target = nil
     end
 end)
 
--- ========== СТВОРЕННЯ ВКЛАДКИ ТА КНОПОК ==========
+-- ========== ВКЛАДКИ ТА КНОПКИ ==========
 local mainTab = CreateTab("Aimbot")
 
 CreateToggle(mainTab, "Aimbot", 10, false, function(state)
@@ -264,4 +261,4 @@ CreateButton(mainTab, "Target: Torso", 170, function()
     Aimbot.HitPart = "HumanoidRootPart"
 end)
 
-print("Fixed AimBot Menu loaded! F4 = Toggle")
+print("360 Smooth Aim Loaded! Press F4 for Menu.")
