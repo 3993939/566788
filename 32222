@@ -1,0 +1,187 @@
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Sirius-menu/Rayfield/main/source.lua'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Colin Hub | Aim + ESP",
+   LoadingTitle = "Завантаження...",
+   LoadingSubtitle = "by Colin",
+   Theme = "Default",
+   ConfigurationSaving = {
+      Enabled = false
+   }
+})
+
+-- Налаштування (Змінні)
+_G.AimbotEnabled = false
+_G.Smoothness = 0.08
+_G.TeamCheck = true
+_G.EspEnabled = false
+_G.EspNames = false
+
+-- ВКЛАДКА АІМУ
+local AimTab = Window:CreateTab("Аімбот", 4483362458) 
+
+AimTab:CreateToggle({
+   Name = "Увімкнути Aimbot (ПКМ)",
+   CurrentValue = false,
+   Flag = "AimToggle",
+   Callback = function(Value)
+      _G.AimbotEnabled = Value
+   end,
+})
+
+AimTab:CreateSlider({
+   Name = "Плавність наведення",
+   Range = {0.01, 0.5},
+   Increment = 0.01,
+   Suffix = "Smooth",
+   CurrentValue = 0.08,
+   Flag = "SmoothSlider",
+   Callback = function(Value)
+      _G.Smoothness = Value
+   end,
+})
+
+-- ВКЛАДКА ESP
+local VisualTab = Window:CreateTab("Візуал (ESP)", 4483362458)
+
+VisualTab:CreateToggle({
+   Name = "Увімкнути ESP (Квадрати)",
+   CurrentValue = false,
+   Flag = "EspToggle",
+   Callback = function(Value)
+      _G.EspEnabled = Value
+   end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Показувати імена",
+   CurrentValue = false,
+   Flag = "EspNames",
+   Callback = function(Value)
+      _G.EspNames = Value
+   end,
+})
+
+VisualTab:CreateToggle({
+   Name = "Перевірка команди (Team Check)",
+   CurrentValue = true,
+   Flag = "TeamToggle",
+   Callback = function(Value)
+      _G.TeamCheck = Value
+   end,
+})
+
+-- ========== ЛОГІКА ESP (Малювання) ==========
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local function CreateEsp(plr)
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = Color3.new(1, 1, 1)
+    Box.Thickness = 1
+    Box.Transparency = 1
+    Box.Filled = false
+
+    local Name = Drawing.new("Text")
+    Name.Visible = false
+    Name.Color = Color3.new(1, 1, 1)
+    Name.Size = 14
+    Name.Center = true
+    Name.Outline = true
+
+    local Connection
+    Connection = RunService.RenderStepped:Connect(function()
+        if _G.EspEnabled and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr ~= LocalPlayer then
+            if _G.TeamCheck and plr.Team == LocalPlayer.Team then
+                Box.Visible = false
+                Name.Visible = false
+            else
+                local RootPart = plr.Character.HumanoidRootPart
+                local Head = plr.Character:FindFirstChild("Head")
+                if not Head then return end
+
+                local RootPos, OnScreen = Camera:WorldToViewportPoint(RootPart.Position)
+                
+                if OnScreen then
+                    -- Розрахунок розміру квадрата залежно від відстані
+                    local scale = 1 / (RootPos.Z * math.tan(math.rad(Camera.FieldOfView * 0.5))) * 1000
+                    local w, h = 3 * scale, 5 * scale
+                    
+                    Box.Size = Vector2.new(w, h)
+                    Box.Position = Vector2.new(RootPos.X - w / 2, RootPos.Y - h / 2)
+                    Box.Visible = true
+
+                    if _G.EspNames then
+                        Name.Text = plr.Name
+                        Name.Position = Vector2.new(RootPos.X, RootPos.Y - h / 2 - 15)
+                        Name.Visible = true
+                    else
+                        Name.Visible = false
+                    end
+                else
+                    Box.Visible = false
+                    Name.Visible = false
+                end
+            end
+        else
+            Box.Visible = false
+            Name.Visible = false
+            if not plr.Parent then
+                Box:Remove()
+                Name:Remove()
+                Connection:Disconnect()
+            end
+        end
+    end)
+end
+
+-- Додавання ESP для всіх
+for _, p in pairs(Players:GetPlayers()) do CreateEsp(p) end
+Players.PlayerAdded:Connect(CreateEsp)
+
+-- ========== ЛОГІКА АІМУ 360 ==========
+local UserInputService = game:GetService("UserInputService")
+local target = nil
+
+local function GetClosest()
+    local nearest = nil
+    local lastDist = 500 -- FOV радіус
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            if _G.TeamCheck and p.Team == LocalPlayer.Team then continue end
+            local pos, vis = Camera:WorldToViewportPoint(p.Character.Head.Position)
+            if vis then
+                local m = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if m < lastDist then
+                    lastDist = m
+                    nearest = p.Character.Head
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+RunService.RenderStepped:Connect(function()
+    if _G.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        if not target or not target.Parent then target = GetClosest() end
+        if target then
+            local lookVector = (target.Position - Camera.CFrame.Position).Unit
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + lookVector)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, _G.Smoothness)
+        end
+    else
+        target = nil
+    end
+end)
+
+Rayfield:Notify({
+   Title = "Успішно!",
+   Content = "Меню Colin Hub завантажено. F4 або кнопка в меню для керування.",
+   Duration = 5,
+   Image = 4483362458,
+})
