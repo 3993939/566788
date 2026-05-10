@@ -1,4 +1,4 @@
--- Порожнє меню + Аім від Colin (ПОВНІСТЮ ГОТОВЕ)
+-- Порожнє меню + Аім від Colin (ВИПРАВЛЕНО)
 -- F4 = сховати/показати меню
 -- Правий клік = аім
 
@@ -19,7 +19,8 @@ local UICorner = Instance.new("UICorner")
 
 ScreenGui.Name = "MyMenu"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game.CoreGui
+-- Використовуємо pcall, щоб скрипт не впав, якщо доступу до CoreGui немає (залежить від екзекутора)
+pcall(function() ScreenGui.Parent = game.CoreGui end) 
 
 Frame.Name = "Main"
 Frame.Size = UDim2.new(0, 400, 0, 300)
@@ -27,7 +28,7 @@ Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
 Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.BorderSizePixel = 0
 Frame.Active = true
-Frame.Draggable = true
+Frame.Draggable = true -- Працює в більшості старих екзекуторів
 Frame.Parent = ScreenGui
 
 UICorner.CornerRadius = UDim.new(0, 8)
@@ -73,11 +74,13 @@ ContentFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ContentFrame.BorderSizePixel = 0
 ContentFrame.Parent = Frame
 
+local tabCount = 0
 function CreateTab(name)
+    tabCount = tabCount + 1
     local Btn = Instance.new("TextButton")
     Btn.Text = name
     Btn.Size = UDim2.new(1, 0, 0, 30)
-    Btn.Position = UDim2.new(0, 0, 0, #TabFrame:GetChildren() * 32)
+    Btn.Position = UDim2.new(0, 0, 0, (tabCount - 1) * 32)
     Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     Btn.BorderSizePixel = 0
     Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -90,7 +93,7 @@ function CreateTab(name)
     Page.BackgroundTransparency = 1
     Page.ScrollBarThickness = 3
     Page.CanvasSize = UDim2.new(0, 0, 0, 400)
-    Page.Visible = false
+    Page.Visible = (tabCount == 1) -- Перша вкладка відразу видима
     Page.Parent = ContentFrame
     
     Btn.MouseButton1Click:Connect(function()
@@ -100,11 +103,10 @@ function CreateTab(name)
         Page.Visible = true
     end)
     
-    if #TabFrame:GetChildren() == 2 then Page.Visible = true end
-    
     return Page
 end
 
+-- Інші функції GUI без змін (CreateButton, CreateToggle...)
 function CreateButton(parent, text, y, callback)
     local Btn = Instance.new("TextButton")
     Btn.Text = text
@@ -142,11 +144,11 @@ function CreateToggle(parent, text, y, default, callback)
     return Toggle
 end
 
--- Закриття меню
+-- Керування видимістю
 local guiVisible = true
 CloseButton.MouseButton1Click:Connect(function()
-    guiVisible = not guiVisible
-    Frame.Visible = guiVisible
+    guiVisible = false
+    Frame.Visible = false
 end)
 
 UserInputService.InputBegan:Connect(function(input, gpe)
@@ -157,94 +159,93 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- ========== СТВОРЮЄМО ВКЛАДКУ ==========
-local mainTab = CreateTab("Aimbot")
-
 -- ========== НАЛАШТУВАННЯ АІМУ ==========
 local Aimbot = {
     Enabled = false,
     Target = nil,
-    AimKey = "MouseButton2",
+    AimKey = Enum.UserInputType.MouseButton2, -- Виправлено: краще використовувати Enum
     HitPart = "Head",
-    Smoothness = 0.08,
+    Smoothness = 0.2, -- Було занадто мало, камера могла "дьоргатись"
     FOV = 200,
-    ShowFOV = false,
     WallCheck = true,
     TeamCheck = true
 }
 
--- ========== ФУНКЦІЇ АІМУ ==========
+-- ========== ФУНКЦІЇ АІМУ (ВИПРАВЛЕНО) ==========
 local function IsBehindWall(targetPart)
     if not Aimbot.WallCheck then return false end
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return true end
-    local origin = LocalPlayer.Character.Head.Position
-    local direction = (targetPart.Position - origin).Unit * 3000
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("Head") then return true end
+    
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude -- Новий стандарт замість Blacklist
+    raycastParams.FilterDescendantsInstances = {char, Camera}
+    
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin)
     local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    
     if raycastResult then
+        -- Якщо промінь влучив у щось, що не є частиною гравця — значить там стіна
         return not raycastResult.Instance:IsDescendantOf(targetPart.Parent)
     end
-    return true
+    return false
 end
 
 local function GetAimTarget()
     local bestDist = Aimbot.FOV
     local bestTarget = nil
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr == LocalPlayer then continue end
-        if not plr.Character then continue end
-        local hum = plr.Character:FindFirstChild("Humanoid")
-        local hitPart = plr.Character:FindFirstChild(Aimbot.HitPart)
-        local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-        if not (hum and hitPart and hrp) then continue end
-        if hum.Health <= 0 then continue end
-        if Aimbot.TeamCheck then
-            if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then continue end
-            if plr.TeamColor and LocalPlayer.TeamColor and plr.TeamColor == LocalPlayer.TeamColor then continue end
-        end
-        if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then continue end
-        local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-        if dist > 3000 then continue end
-        if Aimbot.WallCheck and IsBehindWall(hitPart) then continue end
+        local char = plr.Character
+        if not char then continue end
+        
+        local hum = char:FindFirstChild("Humanoid")
+        local hitPart = char:FindFirstChild(Aimbot.HitPart)
+        if not (hum and hitPart) or hum.Health <= 0 then continue end
+        
+        if Aimbot.TeamCheck and plr.Team == LocalPlayer.Team then continue end
+        
         local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-        if not onScreen then continue end
-        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-        if screenDist < bestDist then
-            bestDist = screenDist
-            bestTarget = {Part = hitPart, Player = plr}
+        if onScreen then
+            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+            if screenDist < bestDist then
+                if not IsBehindWall(hitPart) then
+                    bestDist = screenDist
+                    bestTarget = {Part = hitPart, Player = plr}
+                end
+            end
         end
     end
     return bestTarget
 end
 
-local function PerformAim()
-    if not Aimbot.Enabled then Aimbot.Target = nil; return end
-    local aimKeyPressed = false
-    if Aimbot.AimKey == "MouseButton2" then
-        aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-    elseif Aimbot.AimKey == "MouseButton1" then
-        aimKeyPressed = UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
+RunService.RenderStepped:Connect(function()
+    if Aimbot.Enabled and UserInputService:IsMouseButtonPressed(Aimbot.AimKey) then
+        if not Aimbot.Target or not Aimbot.Target.Part or not Aimbot.Target.Part.Parent or Aimbot.Target.Player.Character.Humanoid.Health <= 0 then
+            Aimbot.Target = GetAimTarget()
+        end
+        
+        if Aimbot.Target and Aimbot.Target.Part then
+            local targetPos = Camera:WorldToViewportPoint(Aimbot.Target.Part.Position)
+            local mousePos = UserInputService:GetMouseLocation()
+            -- Плавне наведення миші (працює краще для легітності)
+            local moveX = (targetPos.X - mousePos.X) * Aimbot.Smoothness
+            local moveY = (targetPos.Y - mousePos.Y) * Aimbot.Smoothness
+            mousemoverel(moveX, moveY) -- Функція більшості екзекуторів
+        end
+    else
+        Aimbot.Target = nil
     end
-    if not aimKeyPressed then Aimbot.Target = nil; return end
-    if not Aimbot.Target or not Aimbot.Target.Part or not Aimbot.Target.Part.Parent then
-        Aimbot.Target = GetAimTarget()
-    end
-    if Aimbot.Target and Aimbot.Target.Part then
-        local targetDir = (Aimbot.Target.Part.Position - Camera.CFrame.Position).Unit
-        local smoothDir = Camera.CFrame.LookVector:Lerp(targetDir, Aimbot.Smoothness)
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothDir)
-    end
-end
+end)
 
-RunService.RenderStepped:Connect(PerformAim)
+-- ========== СТВОРЕННЯ ВКЛАДКИ ТА КНОПОК ==========
+local mainTab = CreateTab("Aimbot")
 
--- ========== КНОПКИ В МЕНЮ ==========
 CreateToggle(mainTab, "Aimbot", 10, false, function(state)
     Aimbot.Enabled = state
-    Aimbot.Target = nil
 end)
 
 CreateToggle(mainTab, "Team Check", 50, true, function(state)
@@ -263,4 +264,4 @@ CreateButton(mainTab, "Target: Torso", 170, function()
     Aimbot.HitPart = "HumanoidRootPart"
 end)
 
-print("AimBot Menu loaded! F4 = hide, RightClick = aim")
+print("Fixed AimBot Menu loaded! F4 = Toggle")
