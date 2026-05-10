@@ -1,18 +1,10 @@
--- Colin Hub: Aimbot + Rainbow ESP [NO VIRTUALINPUTMANAGER - FIXED 267]
+-- Colin Hub: Aimbot + Rainbow ESP [ЧИСТИЙ, БЕЗ АВТОШОТУ]
+-- Права кнопка миші = аім
 -- F4 = меню
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-   Name = "Colin Hub | Safe Edition",
-   LoadingTitle = "Завантаження...",
-   LoadingSubtitle = "by Colin",
-   Theme = "Default",
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "ColinSafe",
-      FileName = "Config"
-   }
-})
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Colin Hub | Aimbot & ESP", "BloodTheme")
+Library.ToggleKey = Enum.KeyCode.F4
 
 -- ==================== СЕРВІСИ ====================
 local Players = game:GetService("Players")
@@ -20,17 +12,14 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
 -- ==================== ЗМІННІ ====================
 _G.AimbotEnabled = false
-_G.AutoShootEnabled = false
 _G.Smoothness = 0.08
-_G.FOV = 200
+_G.FOV = 250
 _G.TeamCheck = true
 _G.WallCheck = true
 _G.HitPart = "Head"
-_G.AimKey = "MouseButton2"
 
 _G.ESPEnabled = false
 _G.ESPRainbow = true
@@ -190,9 +179,7 @@ local function IsBehindWall(targetPart)
     rayParams.FilterType = Enum.RaycastFilterType.Blacklist
     rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
     local result = workspace:Raycast(origin, direction, rayParams)
-    if result then
-        return not result.Instance:IsDescendantOf(targetPart.Parent)
-    end
+    if result then return not result.Instance:IsDescendantOf(targetPart.Parent) end
     return false
 end
 
@@ -222,72 +209,75 @@ local function GetAimTarget()
     return bestTarget
 end
 
-local function IsAimKeyPressed()
-    local aimKey = _G.AimKey
-    if aimKey == "MouseButton1" then
-        return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-    elseif aimKey == "MouseButton2" then
-        return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-    else
-        return UserInputService:IsKeyDown(Enum.KeyCode[aimKey])
-    end
-end
-
--- БЕЗПЕЧНИЙ Auto Shoot (без VirtualInputManager)
-local function SafeClick()
-    pcall(function()
-        -- Спроба через стандартний Mouse
-        Mouse:Button1Down()
-        task.wait(0.05)
-        Mouse:Button1Up()
-    end)
-end
-
+-- Аім по правій кнопці миші
 RunService.RenderStepped:Connect(function()
-    if _G.AimbotEnabled and IsAimKeyPressed() then
+    if _G.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local target = GetAimTarget()
         if target then
             local targetDirection = (target.Position - Camera.CFrame.Position).Unit
             local smoothFrame = Camera.CFrame.LookVector:Lerp(targetDirection, _G.Smoothness)
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothFrame)
-            
-            -- Auto Shoot (без VirtualInputManager)
-            if _G.AutoShootEnabled then
-                SafeClick()
-            end
         end
     end
 end)
 
--- ==================== GUI ====================
-local AimTab = Window:CreateTab("Aimbot", 4483362458)
-AimTab:CreateSection("Основні налаштування")
-AimTab:CreateToggle({Name = "Увімкнути Aimbot", CurrentValue = false, Callback = function(v) _G.AimbotEnabled = v end})
-AimTab:CreateToggle({Name = "Auto Shoot (Safe)", CurrentValue = false, Callback = function(v) _G.AutoShootEnabled = v end})
+-- ==================== МЕНЮ ====================
+local AimTab = Window:NewTab("Аімбот")
+local AimSection = AimTab:NewSection("Налаштування Аіму")
 
-AimTab:CreateSection("Кнопка активації")
-AimTab:CreateButton({Name = "Кнопка: ПКМ", Callback = function() _G.AimKey = "MouseButton2" end})
-AimTab:CreateButton({Name = "Кнопка: ЛКМ", Callback = function() _G.AimKey = "MouseButton1" end})
-AimTab:CreateButton({Name = "Кнопка: E", Callback = function() _G.AimKey = "E" end})
-AimTab:CreateButton({Name = "Кнопка: Q", Callback = function() _G.AimKey = "Q" end})
+AimSection:NewToggle("Увімкнути Aimbot", "ПКМ для наведення", function(state)
+    _G.AimbotEnabled = state
+end)
 
-AimTab:CreateSection("Ціль")
-AimTab:CreateButton({Name = "Target: Head", Callback = function() _G.HitPart = "Head" end})
-AimTab:CreateButton({Name = "Target: Torso", Callback = function() _G.HitPart = "HumanoidRootPart" end})
+AimSection:NewSlider("Плавність", "Менше = швидше", 300, 10, function(s)
+    _G.Smoothness = s / 1000
+end)
 
-AimTab:CreateSection("Налаштування")
-AimTab:CreateSlider({Name = "Плавність", Range = {0.01, 0.3}, Increment = 0.01, CurrentValue = 0.08, Callback = function(v) _G.Smoothness = v end})
-AimTab:CreateSlider({Name = "FOV (Радіус)", Range = {50, 500}, Increment = 5, CurrentValue = 200, Callback = function(v) _G.FOV = v end})
-AimTab:CreateToggle({Name = "Team Check", CurrentValue = true, Callback = function(v) _G.TeamCheck = v end})
-AimTab:CreateToggle({Name = "Wall Check", CurrentValue = true, Callback = function(v) _G.WallCheck = v end})
+AimSection:NewSlider("FOV Радіус", "Зона захвату цілі", 500, 50, function(s)
+    _G.FOV = s
+end)
 
-local ESPTab = Window:CreateTab("ESP", 4483362458)
-ESPTab:CreateSection("Налаштування ESP")
-ESPTab:CreateToggle({Name = "Увімкнути ESP", CurrentValue = false, Callback = function(v) _G.ESPEnabled = v end})
-ESPTab:CreateToggle({Name = "Rainbow Mode", CurrentValue = true, Callback = function(v) _G.ESPRainbow = v end})
-ESPTab:CreateToggle({Name = "Бокси", CurrentValue = true, Callback = function(v) _G.ESPBoxes = v end})
-ESPTab:CreateToggle({Name = "Трейсери", CurrentValue = true, Callback = function(v) _G.ESPTracers = v end})
-ESPTab:CreateToggle({Name = "Імена", CurrentValue = true, Callback = function(v) _G.ESPNames = v end})
-ESPTab:CreateToggle({Name = "HP Бари", CurrentValue = true, Callback = function(v) _G.ESPHealth = v end})
+AimSection:NewToggle("Team Check", "Не чіпати своїх", function(state)
+    _G.TeamCheck = state
+end)
 
-Rayfield:LoadConfiguration()
+AimSection:NewToggle("Wall Check", "Не стріляти крізь стіни", function(state)
+    _G.WallCheck = state
+end)
+
+AimSection:NewButton("Ціль: Голова", function()
+    _G.HitPart = "Head"
+end)
+
+AimSection:NewButton("Ціль: Торс", function()
+    _G.HitPart = "HumanoidRootPart"
+end)
+
+local VisTab = Window:NewTab("ESP")
+local VisSection = VisTab:NewSection("Налаштування ESP")
+
+VisSection:NewToggle("Увімкнути ESP", "Показувати ворогів", function(state)
+    _G.ESPEnabled = state
+end)
+
+VisSection:NewToggle("Rainbow Mode", "Кольори веселки", function(state)
+    _G.ESPRainbow = state
+end)
+
+VisSection:NewToggle("Бокси", "", function(state)
+    _G.ESPBoxes = state
+end)
+
+VisSection:NewToggle("Трейсери", "Лінії до ворогів", function(state)
+    _G.ESPTracers = state
+end)
+
+VisSection:NewToggle("Імена", "", function(state)
+    _G.ESPNames = state
+end)
+
+VisSection:NewToggle("HP Бари", "", function(state)
+    _G.ESPHealth = state
+end)
+
+Library:Notify("Colin Hub", "F4 — меню | ПКМ — аім", 5)
