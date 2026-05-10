@@ -1,220 +1,256 @@
--- Roblox UI Framework (F4 Toggle, Tabs, Buttons, Toggles, Sliders)
--- Clean modular style
+-- Colin Hub: Auto-Aim (No Key Hold) + ESP
+-- F4 = меню
+-- Увімкнув тогл — аім сам працює постійно
+
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("Colin Hub | Auto-Aim & ESP", "BloodTheme")
+Library.ToggleKey = Enum.KeyCode.F4
+
+-- Змінні
+_G.AutoAim = false
+_G.EspEnabled = false
+_G.Smoothness = 0.1
+_G.TeamCheck = true
+_G.AimRadius = 500
+_G.ShowTracers = true
+_G.ShowNames = true
+_G.ShowHP = true
+_G.ShowDistance = true
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- SETTINGS
-local Settings = {
-    MenuVisible = true,
-    Theme = {
-        Main = Color3.fromRGB(30,30,30),
-        Top = Color3.fromRGB(45,45,45),
-        Side = Color3.fromRGB(35,35,35),
-        Accent = Color3.fromRGB(0,170,255),
-        Text = Color3.fromRGB(255,255,255)
-    }
-}
+-- Вкладка Аімботу
+local Main = Window:NewTab("Аімбот")
+local MainSection = Main:NewSection("Автоматичне наведення")
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FrameworkUI"
-ScreenGui.ResetOnSpawn = false
-pcall(function()
-    ScreenGui.Parent = game.CoreGui
+MainSection:NewToggle("Авто-Аім (Постійно)", "Наводиться сам без кнопок", function(state)
+    _G.AutoAim = state
 end)
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 500, 0, 350)
-Main.Position = UDim2.new(0.5, -250, 0.5, -175)
-Main.BackgroundColor3 = Settings.Theme.Main
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.Parent = ScreenGui
+MainSection:NewSlider("Плавність", "Менше = швидше наведення", 300, 10, function(s)
+    _G.Smoothness = s / 1000
+end)
 
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+MainSection:NewToggle("Перевірка команди", "Не чіпати своїх", function(state)
+    _G.TeamCheck = state
+end)
 
--- TOPBAR
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1,0,0,35)
-TopBar.BackgroundColor3 = Settings.Theme.Top
-TopBar.BorderSizePixel = 0
-TopBar.Parent = Main
+MainSection:NewSlider("Радіус захвату", "Більше = далі хапає", 1000, 100, function(s)
+    _G.AimRadius = s
+end)
 
-Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0,10)
+-- Вкладка ESP
+local Visuals = Window:NewTab("Візуал")
+local VisualSection = Visuals:NewSection("ESP Налаштування")
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -40, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Professional Menu Framework"
-Title.TextColor3 = Settings.Theme.Text
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 15
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TopBar
+VisualSection:NewToggle("Box ESP", "Бачити ворогів крізь стіни", function(state)
+    _G.EspEnabled = state
+end)
 
-local Close = Instance.new("TextButton")
-Close.Size = UDim2.new(0,30,0,30)
-Close.Position = UDim2.new(1,-35,0,2)
-Close.Text = "×"
-Close.Font = Enum.Font.GothamBold
-Close.TextSize = 18
-Close.TextColor3 = Settings.Theme.Text
-Close.BackgroundColor3 = Color3.fromRGB(200,50,50)
-Close.BorderSizePixel = 0
-Close.Parent = TopBar
-Instance.new("UICorner", Close).CornerRadius = UDim.new(0,6)
+VisualSection:NewToggle("Трейсери", "Лінії до ворогів", function(state)
+    _G.ShowTracers = state
+end)
 
--- SIDEBAR
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0,130,1,-35)
-Sidebar.Position = UDim2.new(0,0,0,35)
-Sidebar.BackgroundColor3 = Settings.Theme.Side
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = Main
+VisualSection:NewToggle("Імена", "Показувати ніки", function(state)
+    _G.ShowNames = state
+end)
 
--- CONTENT
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1,-130,1,-35)
-Content.Position = UDim2.new(0,130,0,35)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
+VisualSection:NewToggle("HP", "Показувати здоров'я", function(state)
+    _G.ShowHP = state
+end)
 
-local Tabs = {}
-local CurrentTab = nil
-local TabCount = 0
+VisualSection:NewToggle("Дистанція", "Показувати відстань", function(state)
+    _G.ShowDistance = state
+end)
 
--- UTILITIES
-local function Tween(obj, props)
-    TweenService:Create(obj, TweenInfo.new(0.2), props):Play()
-end
+-- ФУНКЦІЯ ПОШУКУ ЦІЛІ
+local function GetClosestPlayer()
+    local target = nil
+    local shortestDistance = _G.AimRadius
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local myTeam = LocalPlayer.Team
 
-local function CreateTab(name)
-    TabCount += 1
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local char = player.Character
+        if not char then continue end
+        local head = char:FindFirstChild("Head")
+        local hum = char:FindFirstChild("Humanoid")
+        
+        if not (head and hum) or hum.Health <= 0 then continue end
+        if _G.TeamCheck and player.Team == myTeam then continue end
 
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1,-10,0,35)
-    Button.Position = UDim2.new(0,5,0,(TabCount-1)*40 + 5)
-    Button.BackgroundColor3 = Settings.Theme.Top
-    Button.Text = name
-    Button.TextColor3 = Settings.Theme.Text
-    Button.Font = Enum.Font.Gotham
-    Button.TextSize = 14
-    Button.BorderSizePixel = 0
-    Button.Parent = Sidebar
-    Instance.new("UICorner", Button).CornerRadius = UDim.new(0,6)
-
-    local Page = Instance.new("ScrollingFrame")
-    Page.Size = UDim2.new(1,0,1,0)
-    Page.CanvasSize = UDim2.new(0,0,0,600)
-    Page.ScrollBarThickness = 4
-    Page.BackgroundTransparency = 1
-    Page.Visible = false
-    Page.Parent = Content
-
-    if not CurrentTab then
-        CurrentTab = Page
-        Page.Visible = true
-    end
-
-    Button.MouseButton1Click:Connect(function()
-        if CurrentTab then
-            CurrentTab.Visible = false
+        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+        if onScreen then
+            local magnitude = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+            if magnitude < shortestDistance then
+                target = head
+                shortestDistance = magnitude
+            end
         end
-        CurrentTab = Page
-        Page.Visible = true
-    end)
-
-    Tabs[name] = Page
-    return Page
+    end
+    return target
 end
 
-local function CreateButton(parent, text, posY, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1,-20,0,40)
-    Btn.Position = UDim2.new(0,10,0,posY)
-    Btn.BackgroundColor3 = Settings.Theme.Top
-    Btn.Text = text
-    Btn.TextColor3 = Settings.Theme.Text
-    Btn.Font = Enum.Font.Gotham
-    Btn.TextSize = 14
-    Btn.BorderSizePixel = 0
-    Btn.Parent = parent
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0,6)
-
-    Btn.MouseButton1Click:Connect(callback)
-
-    Btn.MouseEnter:Connect(function()
-        Tween(Btn, {BackgroundColor3 = Settings.Theme.Accent})
-    end)
-
-    Btn.MouseLeave:Connect(function()
-        Tween(Btn, {BackgroundColor3 = Settings.Theme.Top})
-    end)
-end
-
-local function CreateToggle(parent, text, posY, default, callback)
-    local state = default
-
-    local Toggle = Instance.new("TextButton")
-    Toggle.Size = UDim2.new(1,-20,0,40)
-    Toggle.Position = UDim2.new(0,10,0,posY)
-    Toggle.BackgroundColor3 = state and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-    Toggle.Text = text .. ": " .. (state and "ON" or "OFF")
-    Toggle.TextColor3 = Settings.Theme.Text
-    Toggle.Font = Enum.Font.Gotham
-    Toggle.TextSize = 14
-    Toggle.BorderSizePixel = 0
-    Toggle.Parent = parent
-    Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0,6)
-
-    Toggle.MouseButton1Click:Connect(function()
-        state = not state
-        Toggle.Text = text .. ": " .. (state and "ON" or "OFF")
-        Toggle.BackgroundColor3 = state and Color3.fromRGB(0,170,0) or Color3.fromRGB(170,0,0)
-        callback(state)
-    end)
-end
-
--- EXAMPLE TABS
-local MainTab = CreateTab("Main")
-local SettingsTab = CreateTab("Settings")
-
-CreateButton(MainTab, "Example Button", 10, function()
-    print("Button clicked!")
-end)
-
-CreateToggle(MainTab, "Example Toggle", 60, false, function(state)
-    print("Toggle:", state)
-end)
-
-CreateButton(SettingsTab, "Change Theme Accent", 10, function()
-    Settings.Theme.Accent = Color3.fromRGB(
-        math.random(0,255),
-        math.random(0,255),
-        math.random(0,255)
-    )
-end)
-
--- CLOSE BUTTON
-Close.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    Settings.MenuVisible = false
-end)
-
--- F4 TOGGLE
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-
-    if input.KeyCode == Enum.KeyCode.F4 then
-        Settings.MenuVisible = not Settings.MenuVisible
-        Main.Visible = Settings.MenuVisible
+-- ЦИКЛ АІМБОТУ (працює постійно, коли тогл увімкнено)
+RunService.RenderStepped:Connect(function()
+    if _G.AutoAim then
+        local target = GetClosestPlayer()
+        if target then
+            local lookVector = (target.Position - Camera.CFrame.Position).Unit
+            local targetCFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + lookVector)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, _G.Smoothness)
+        end
     end
 end)
 
-print("Framework Loaded Successfully!")
+-- ЛОГІКА ESP
+local ESPCache = {}
+
+local function RemoveESP(player)
+    if ESPCache[player] then
+        for _, obj in pairs(ESPCache[player]) do
+            pcall(function() obj:Remove() end)
+        end
+        ESPCache[player] = nil
+    end
+end
+
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    
+    local esp = {}
+    
+    esp.Box = Drawing.new("Square")
+    esp.Box.Visible = false
+    esp.Box.Color = Color3.fromRGB(255, 50, 50)
+    esp.Box.Thickness = 2
+    esp.Box.Transparency = 1
+    esp.Box.Filled = false
+    
+    esp.Tracer = Drawing.new("Line")
+    esp.Tracer.Visible = false
+    esp.Tracer.Color = Color3.fromRGB(255, 255, 255)
+    esp.Tracer.Thickness = 1
+    esp.Tracer.Transparency = 0.7
+    
+    esp.NameTag = Drawing.new("Text")
+    esp.NameTag.Visible = false
+    esp.NameTag.Color = Color3.fromRGB(255, 255, 255)
+    esp.NameTag.Size = 14
+    esp.NameTag.Center = true
+    esp.NameTag.Outline = true
+    esp.NameTag.OutlineColor = Color3.fromRGB(0, 0, 0)
+    
+    esp.HPBarBg = Drawing.new("Square")
+    esp.HPBarBg.Visible = false
+    esp.HPBarBg.Color = Color3.fromRGB(40, 40, 40)
+    esp.HPBarBg.Filled = true
+    esp.HPBarBg.Transparency = 1
+    
+    esp.HPBar = Drawing.new("Square")
+    esp.HPBar.Visible = false
+    esp.HPBar.Color = Color3.fromRGB(0, 255, 0)
+    esp.HPBar.Filled = true
+    esp.HPBar.Transparency = 1
+    
+    ESPCache[player] = esp
+    
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if not player.Parent then
+            RemoveESP(player)
+            connection:Disconnect()
+            return
+        end
+        
+        local enabled = _G.EspEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid")
+        
+        if not enabled or (player.Character.Humanoid.Health <= 0) then
+            for _, obj in pairs(esp) do obj.Visible = false end
+            return
+        end
+        
+        if _G.TeamCheck and player.Team == LocalPlayer.Team then
+            for _, obj in pairs(esp) do obj.Visible = false end
+            return
+        end
+        
+        local root = player.Character.HumanoidRootPart
+        local hum = player.Character.Humanoid
+        local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
+        
+        if not rootOnScreen then
+            for _, obj in pairs(esp) do obj.Visible = false end
+            return
+        end
+        
+        local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
+        local botPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, -3.5, 0))
+        local boxHeight = math.abs(topPos.Y - botPos.Y)
+        local boxWidth = boxHeight / 1.8
+        
+        if _G.EspEnabled then
+            esp.Box.Visible = true
+            esp.Box.Size = Vector2.new(boxWidth, boxHeight)
+            esp.Box.Position = Vector2.new(rootPos.X - boxWidth / 2, rootPos.Y - boxHeight / 2)
+        else
+            esp.Box.Visible = false
+        end
+        
+        if _G.ShowTracers then
+            esp.Tracer.Visible = true
+            esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + boxHeight / 2)
+        else
+            esp.Tracer.Visible = false
+        end
+        
+        if _G.ShowNames then
+            local label = player.Name
+            if _G.ShowHP then label = label .. " [" .. math.floor(hum.Health) .. " HP]" end
+            if _G.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                label = label .. " [" .. math.floor(dist) .. "m]"
+            end
+            esp.NameTag.Visible = true
+            esp.NameTag.Text = label
+            esp.NameTag.Position = Vector2.new(rootPos.X, rootPos.Y - boxHeight / 2 - 16)
+        else
+            esp.NameTag.Visible = false
+        end
+        
+        if _G.ShowHP then
+            local hpRatio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+            esp.HPBarBg.Visible = true
+            esp.HPBarBg.Size = Vector2.new(boxWidth, 3)
+            esp.HPBarBg.Position = Vector2.new(rootPos.X - boxWidth / 2, rootPos.Y - boxHeight / 2 - 6)
+            esp.HPBar.Visible = true
+            esp.HPBar.Size = Vector2.new(boxWidth * hpRatio, 3)
+            esp.HPBar.Position = Vector2.new(rootPos.X - boxWidth / 2, rootPos.Y - boxHeight / 2 - 6)
+            
+            if hpRatio > 0.6 then
+                esp.HPBar.Color = Color3.fromRGB(0, 255, 0)
+            elseif hpRatio > 0.3 then
+                esp.HPBar.Color = Color3.fromRGB(255, 255, 0)
+            else
+                esp.HPBar.Color = Color3.fromRGB(255, 0, 0)
+            end
+        else
+            esp.HPBarBg.Visible = false
+            esp.HPBar.Visible = false
+        end
+    end)
+end
+
+for _, p in pairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then CreateESP(p) end
+end
+
+Players.PlayerAdded:Connect(function(p) CreateESP(p) end)
+Players.PlayerRemoving:Connect(function(p) RemoveESP(p) end)
+
+Library:Notify("Colin Hub", "F4 — меню | Аім працює без кнопок", 5)
