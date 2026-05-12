@@ -1,185 +1,164 @@
---[ Блокс Фрутс - Повний виживальний скрипт (Colin Survival) ]--
+--[ Colin Survival V2 - Modern UI Edition ]--
 local p = game.Players.LocalPlayer
-local chr = p.Character or p.CharacterAdded:wait()
+local uis = game:GetService("UserInputService")
+local ts = game:GetService("TweenService")
 local rs = game:GetService("ReplicatedStorage")
 local vu = game:GetService("VirtualUser")
-local uis = game:GetService("UserInputService")
 
--- GUI
-local scr = Instance.new("ScreenGui")
-scr.Name = "ColinSurvival"
-scr.ResetOnSpawn = false
-scr.Parent = p.PlayerGui
+-- Створення GUI
+local ColinGui = Instance.new("ScreenGui")
+ColinGui.Name = "ColinV2"
+ColinGui.ResetOnSpawn = false
+ColinGui.Parent = p:WaitForChild("PlayerGui")
 
-local frm = Instance.new("Frame")
-frm.Size = UDim2.new(0, 400, 0, 500)
-frm.Pos = UDim2.new(0.5, -200, 0.5, -250)
-frm.BackColor3 = Color3.fromRGB(20,20,35)
-frm.Parent = scr
-Instance.new("UICorner").CornerRadius = UDim.new(0,15)
-Instance.new("UICorner").Parent = frm
+-- Основне вікно
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 500, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ColinGui
 
-local lst = Instance.new("ScrollingFrame")
-lst.Size = UDim2.new(1,-20,1,-50)
-lst.Pos = UDim2.new(0,10,0,45)
-lst.BackTransparency = 1
-lst.Parent = frm
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 12)
 
-local function btn(txt, y, cb)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.95,0,0,45)
-    b.Pos = UDim2.new(0.025,0,0,y)
-    b.Text = txt
-    b.BackColor3 = Color3.fromRGB(40,40,65)
-    b.TextColor3 = Color3.new(1,1,1)
-    b.Parent = lst
-    Instance.new("UICorner").CornerRadius = UDim.new(0,10)
-    Instance.new("UICorner").Parent = b
-    b.MouseButton1Click:Connect(cb)
-    return b
-end
+-- Тінь/Світіння
+local UIStroke = Instance.new("UIStroke", MainFrame)
+UIStroke.Color = Color3.fromRGB(80, 100, 250)
+UIStroke.Thickness = 2
+UIStroke.Transparency = 0.5
 
-local function tgl(txt, y, def, cb)
-    local b = btn(txt .. ": OFF", y, nil)
-    local state = def
-    b.MouseButton1Click:Connect(function()
+-- Бічна панель (Sidebar)
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 140, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+Sidebar.Parent = MainFrame
+local SideCorner = Instance.new("UICorner", Sidebar)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "COLIN V2"
+Title.TextColor3 = Color3.fromRGB(80, 150, 250)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.BackgroundTransparency = 1
+Title.Parent = Sidebar
+
+-- Контейнер для кнопок (Scrolling)
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -150, 1, -20)
+Content.Position = UDim2.new(0, 150, 0, 10)
+Content.BackgroundTransparency = 1
+Content.CanvasSize = UDim2.new(0, 0, 1.5, 0)
+Content.ScrollBarThickness = 2
+Content.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout", Content)
+Layout.Padding = UDim.new(0, 8)
+
+-- Функція створення перемикача (Modern Toggle)
+local function CreateToggle(name, default, callback)
+    local state = default
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0.95, 0, 0, 40)
+    ToggleBtn.BackgroundColor3 = state and Color3.fromRGB(30, 60, 40) or Color3.fromRGB(30, 30, 40)
+    ToggleBtn.Text = "  " .. name .. (state and " [ON]" or " [OFF]")
+    ToggleBtn.TextColor3 = state and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(200, 200, 200)
+    ToggleBtn.Font = Enum.Font.GothamMedium
+    ToggleBtn.TextSize = 14
+    ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleBtn.Parent = Content
+    
+    Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
+    
+    ToggleBtn.MouseButton1Click:Connect(function()
         state = not state
-        b.Text = txt .. ": " .. (state and "ON✔️" or "OFF❌")
-        cb(state)
+        ts:Create(ToggleBtn, TweenInfo.new(0.3), {
+            BackgroundColor3 = state and Color3.fromRGB(30, 60, 40) or Color3.fromRGB(30, 30, 40),
+            TextColor3 = state and Color3.fromRGB(100, 255, 150) or Color3.fromRGB(200, 200, 200)
+        }):Play()
+        ToggleBtn.Text = "  " .. name .. (state and " [ON]" or " [OFF]")
+        callback(state)
     end)
-    return b
 end
 
--- стани
-local farm, quest, speed, jump, esp, ohk, fly, noc = false, false, false, false, false, false, false, false
-local spdVal = 85
-local spdNorm = 16
-
--- Auto Farm
-tgl("⚔️ AUTO FARM", 10, false, function(s) farm = s end)
-spawn(function()
-    while wait(0.25) do
-        if farm and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            for _,e in pairs(workspace.Enemies:GetChildren()) do
-                if e:FindFirstChild("Humanoid") and e.Humanoid.Health > 0 then
-                    p.Character.HumanoidRootPart.CFrame = e.HumanoidRootPart.CFrame * CFrame.new(0,-3,0)
-                    local t = p.Character:FindFirstChildWhichIsA("Tool")
-                    if t then t:Activate() else vu:Button1Down(Vector2.new(0,0)) end
-                    wait(0.1)
-                end
-            end
-        end
+-- Перетягування (Drag System)
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
     end
 end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+end)
+uis.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+uis.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
 
--- Auto Quest
-tgl("📜 AUTO QUEST", 65, false, function(s) quest = s end)
+--- [ ЛОГІКА СКРИПТА ] ---
+
+local flags = { farm = false, quest = false, speed = false, jump = false, esp = false, ohk = false }
+
+CreateToggle("Auto Farm Level", false, function(v) flags.farm = v end)
+CreateToggle("Auto Quest", false, function(v) flags.quest = v end)
+CreateToggle("Super Speed", false, function(v) flags.speed = v end)
+CreateToggle("Infinite Jump", false, function(v) flags.jump = v end)
+CreateToggle("Fruit ESP", false, function(v) flags.esp = v end)
+CreateToggle("One Hit Kill", false, function(v) flags.ohk = v end)
+
+-- Цикл фарму
 spawn(function()
-    while wait(3) do
-        if quest then
+    while task.wait(0.2) do
+        if flags.farm then
             pcall(function()
-                rs.Remotes.CommF_:InvokeServer("StartQuest","BanditQuest1",1)
-                wait(0.4)
-                rs.Remotes.CommF_:InvokeServer("CompleteQuest")
+                for _, e in pairs(workspace.Enemies:GetChildren()) do
+                    if e:FindFirstChild("Humanoid") and e.Humanoid.Health > 0 then
+                        p.Character.HumanoidRootPart.CFrame = e.HumanoidRootPart.CFrame * CFrame.new(0, -5, 0)
+                        vu:Button1Down(Vector2.new(0,0))
+                    end
+                end
             end)
         end
     end
 end)
 
--- Speed
-tgl("🏃 SPEED ("..spdVal..")", 120, false, function(s) speed = s end)
+-- Швидкість
 spawn(function()
-    while wait(0.1) do
-        if p.Character and p.Character:FindFirstChild("Humanoid") then
-            p.Character.Humanoid.WalkSpeed = speed and spdVal or spdNorm
+    while task.wait(0.5) do
+        if flags.speed and p.Character:FindFirstChild("Humanoid") then
+            p.Character.Humanoid.WalkSpeed = 100
+        elseif p.Character:FindFirstChild("Humanoid") then
+            p.Character.Humanoid.WalkSpeed = 16
         end
     end
 end)
 
--- Infinite Jump
-tgl("🦘 INFINITE JUMP", 175, false, function(s) jump = s end)
-uis.JumpRequest:Connect(function()
-    if jump and p.Character then p.Character.Humanoid:ChangeState("Jumping") end
-end)
+-- Кнопка закриття
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(1, -20, 0, 35)
+CloseBtn.Position = UDim2.new(0, 10, 1, -45)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
+CloseBtn.Text = "CLOSE MENU"
+CloseBtn.TextColor3 = Color3.new(1, 0.4, 0.4)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = Sidebar
+Instance.new("UICorner", CloseBtn)
+CloseBtn.MouseButton1Click:Connect(function() ColinGui:Destroy() end)
 
--- ESP Fruit
-tgl("🍎 ESP FRUIT", 230, false, function(s) 
-    esp = s
-    for _,v in pairs(workspace:GetDescendants()) do
-        if v.Name:lower():match("fruit") and esp then
-            local h = Instance.new("Highlight")
-            h.FillColor = Color3.fromRGB(255,200,0)
-            h.Parent = v
-            game.Debris:AddItem(h,0.5)
-        end
+-- Гаряча клавіша F4 для приховування
+uis.InputBegan:Connect(function(i, gpe)
+    if not gpe and i.KeyCode == Enum.KeyCode.F4 then
+        MainFrame.Visible = not MainFrame.Visible
     end
 end)
 
--- One Hit Kill
-tgl("💀 ONE HIT KILL", 285, false, function(s) ohk = s end)
-spawn(function()
-    while wait(0.2) do
-        if ohk then
-            for _,e in pairs(workspace.Enemies:GetChildren()) do
-                if e:FindFirstChild("Humanoid") and e.Humanoid.Health > 0 then
-                    e.Humanoid.Health = 0
-                end
-            end
-        end
-    end
-end)
-
--- Fly
-tgl("🕊️ FLY MODE (W)", 340, false, function(s) fly = s end)
-local flyBody = nil
-game:GetService("RunService").RenderStepped:Connect(function()
-    if fly and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-        if uis:IsKeyDown(Enum.KeyCode.W) then
-            local hrp = p.Character.HumanoidRootPart
-            if not flyBody then
-                p.Character.Humanoid.PlatformStand = true
-                flyBody = Instance.new("BodyVelocity")
-                flyBody.MaxForce = Vector3.new(1,1,1)*100000
-                flyBody.Parent = hrp
-            end
-            flyBody.Velocity = (workspace.CurrentCamera.CFrame.LookVector * 70) + Vector3.new(0,5,0)
-        elseif flyBody then
-            flyBody:Destroy()
-            flyBody = nil
-            p.Character.Humanoid.PlatformStand = false
-        end
-    elseif flyBody then
-        flyBody:Destroy()
-        flyBody = nil
-        if p.Character then p.Character.Humanoid.PlatformStand = false end
-    end
-end)
-
--- No Clip
-tgl("🧱 NO CLIP", 395, false, function(s) noc = s end)
-spawn(function()
-    while wait(0.15) do
-        if noc and p.Character then
-            p.Character.HumanoidRootPart.CanCollide = false
-            wait(0.2)
-            p.Character.HumanoidRootPart.CanCollide = true
-        end
-    end
-end)
-
--- Teleports
-btn("📍 TELEPORT TO NPC", 450, function()
-    local npc = workspace:FindFirstChild("BanditQuestGiver") or workspace:FindFirstChild("QuestGiver")
-    if npc and p.Character then
-        p.Character.HumanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame * CFrame.new(0,-2,2)
-    end
-end)
-
-btn("🔴 ЗАКРИТИ", 505, function() scr.Enabled = false end)
-
--- F4 hide
-uis.InputBegan:Connect(function(i)
-    if i.KeyCode == Enum.KeyCode.F4 then frm.Visible = not frm.Visible end
-end)
-
-print("✅ Colin Survival Script v1 завантажено — Blox Fruits")
+print("Colin V2 loaded! Press F4 to toggle.")
