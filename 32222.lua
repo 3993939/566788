@@ -1,283 +1,215 @@
--- Colin Hub: Aimbot + Rainbow ESP [ЧИСТИЙ, БЕЗ АВТОШОТУ]
--- Права кнопка миші = аім
--- F4 = меню
+--== [ SOFT AIM + ESP + BEAUTIFUL PASTEL GUI ] ==--
+-- АКТИВАЦІЯ / ЗГОРТАННЯ: ПРАВИЙ SHIFT
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("Colin Hub | Aimbot & ESP", "BloodTheme")
-Library.ToggleKey = Enum.KeyCode.F4
-
--- ==================== СЕРВІСИ ====================
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
+local TweenService = game:GetService("TweenService")
+
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
--- ==================== ЗМІННІ ====================
-_G.AimbotEnabled = false
-_G.Smoothness = 0.08
-_G.FOV = 250
-_G.TeamCheck = true
-_G.WallCheck = true
-_G.HitPart = "Head"
+-- Перевірка на наявність UI, щоб не створювати дублікати
+local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SoftHub")
+if oldGui then oldGui:Destroy() end
 
-_G.ESPEnabled = false
-_G.ESPRainbow = true
-_G.ESPBoxes = true
-_G.ESPTracers = true
-_G.ESPNames = true
-_G.ESPHealth = true
+-- Створення GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SoftHub"
+screenGui.ResetOnSpawn = false
+if syn and syn.protect_gui then syn.protect_gui(screenGui) end
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- ==================== ESP ====================
-local ESPObjects = {}
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 420, 0, 200)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -100)
+mainFrame.BackgroundTransparency = 0.15
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
 
-local function RemoveESP(player)
-    if ESPObjects[player] then
-        for _, obj in pairs(ESPObjects[player]) do
-            pcall(function() obj:Remove() end)
-        end
-        ESPObjects[player] = nil
+-- Заокруглення для краси
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 16)
+corner.Parent = mainFrame
+
+-- Анімація появи/зникнення UI
+local function animateGUI(state)
+    local goal = {BackgroundTransparency = state and 0.15 or 1}
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+    tween:Play()
+end
+
+-- Заголовок меню
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.BackgroundTransparency = 1
+title.Text = "⋆⫸ SOFT HUB ⫷⋆"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 22
+title.Font = Enum.Font.GothamBold
+title.Parent = mainFrame
+
+-- Налаштування тіні/світіння тексту для стилю
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = Color3.fromRGB(0, 0, 0)
+titleStroke.Thickness = 1.5
+titleStroke.Parent = title
+
+-- Кнопка керування Аімом
+local aimToggle = Instance.new("TextButton")
+aimToggle.Size = UDim2.new(0, 170, 0, 45)
+aimToggle.Position = UDim2.new(0, 30, 0, 80)
+aimToggle.Text = "✓ Aimbot (ON)"
+aimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+aimToggle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+aimToggle.BackgroundTransparency = 0.4
+aimToggle.TextSize = 16
+aimToggle.Font = Enum.Font.GothamMedium
+local cornerBtn1 = Instance.new("UICorner")
+cornerBtn1.CornerRadius = UDim.new(0, 10)
+cornerBtn1.Parent = aimToggle
+aimToggle.Parent = mainFrame
+
+-- Кнопка керування ESP
+local espToggle = Instance.new("TextButton")
+espToggle.Size = UDim2.new(0, 170, 0, 45)
+espToggle.Position = UDim2.new(0, 220, 0, 80)
+espToggle.Text = "✓ ESP (ON)"
+espToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+espToggle.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+espToggle.BackgroundTransparency = 0.4
+espToggle.TextSize = 16
+espToggle.Font = Enum.Font.GothamMedium
+local cornerBtn2 = Instance.new("UICorner")
+cornerBtn2.CornerRadius = UDim.new(0, 10)
+cornerBtn2.Parent = espToggle
+espToggle.Parent = mainFrame
+
+local aimbotEnabled = true
+local espEnabled = true
+local espBoxes = {}
+
+-- Логіка кнопок
+aimToggle.MouseButton1Click:Connect(function()
+    aimbotEnabled = not aimbotEnabled
+    aimToggle.Text = aimbotEnabled and "✓ Aimbot (ON)" or "✗ Aimbot (OFF)"
+    aimToggle.TextColor3 = aimbotEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+end)
+
+espToggle.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espToggle.Text = espEnabled and "✓ ESP (ON)" or "✗ ESP (OFF)"
+    espToggle.TextColor3 = espEnabled and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 150)
+    for _, box in pairs(espBoxes) do
+        if box then box.Visible = espEnabled end
     end
-end
+end)
 
-local function GetRainbowColor(speed)
-    local hue = (tick() * (speed or 1)) % 1
-    return Color3.fromHSV(hue, 1, 1)
-end
+-- Відкриття/Закриття меню на Right Shift
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        mainFrame.Visible = not mainFrame.Visible
+        if mainFrame.Visible then animateGUI(true) end
+    end
+end)
 
-local function CreateESP(player)
+-- ===== НІЖНЕ ПЕРЕЛИВАННЯ КОЛЬОРІВ (Ніжний пастельний градієнт) =====
+local hue = 0
+RunService.RenderStepped:Connect(function(deltaTime)
+    -- Швидкість зміни кольору (0.05 — дуже плавно і ніжно)
+    hue = (hue + (0.05 * deltaTime)) % 1
+    -- Насиченість 0.5 та яскравість 0.7 роблять кольори саме пастельними, а не кислотними
+    local rainbowColor = Color3.fromHSV(hue, 0.5, 0.7) 
+    mainFrame.BackgroundColor3 = rainbowColor
+    
+    -- Оновлення кольору ESP Box, якщо увімкнено
+    if espEnabled then
+        for _, box in pairs(espBoxes) do
+            if box and box:IsA("BoxHandleAdornment") then
+                box.Color3 = rainbowColor
+            end
+        end
+    end
+end)
+
+-- ===== ESP СИСТЕМA =====
+local function createESP(player)
     if player == LocalPlayer then return end
     
-    local esp = {}
+    local function applyESP(character)
+        local root = character:WaitForChild("HumanoidRootPart", 5)
+        if not root then return end
+        
+        -- Створюємо Box
+        local box = Instance.new("BoxHandleAdornment")
+        box.Name = "ESP_" .. player.Name
+        box.Size = Vector3.new(4, 6, 4) -- Оптимальний розмір під хітбокс персонажа
+        box.AlwaysOnTop = true
+        box.ZIndex = 5
+        box.Transparency = 0.6 -- М'яка прозорість, щоб не сліпило
+        box.Adornee = character
+        box.Visible = espEnabled
+        box.Parent = screenGui
+        
+        espBoxes[player] = box
+    end
     
-    esp.Box = Drawing.new("Square")
-    esp.Box.Visible = false
-    esp.Box.Thickness = 2
-    esp.Box.Transparency = 1
-    esp.Box.Filled = false
+    if player.Character then applyESP(player.Character) end
+    player.CharacterAdded:Connect(applyESP)
     
-    esp.Tracer = Drawing.new("Line")
-    esp.Tracer.Visible = false
-    esp.Tracer.Thickness = 1
-    esp.Tracer.Transparency = 0.7
-    
-    esp.NameTag = Drawing.new("Text")
-    esp.NameTag.Visible = false
-    esp.NameTag.Size = 14
-    esp.NameTag.Center = true
-    esp.NameTag.Outline = true
-    esp.NameTag.OutlineColor = Color3.fromRGB(0, 0, 0)
-    
-    esp.HPBarBg = Drawing.new("Square")
-    esp.HPBarBg.Visible = false
-    esp.HPBarBg.Color = Color3.fromRGB(40, 40, 40)
-    esp.HPBarBg.Filled = true
-    esp.HPBarBg.Transparency = 1
-    
-    esp.HPBar = Drawing.new("Square")
-    esp.HPBar.Visible = false
-    esp.HPBar.Filled = true
-    esp.HPBar.Transparency = 1
-    
-    ESPObjects[player] = esp
-    
-    RunService.RenderStepped:Connect(function()
-        if not player.Parent then RemoveESP(player) return end
-        if not _G.ESPEnabled then
-            for _, obj in pairs(esp) do obj.Visible = false end
-            return
-        end
-        
-        local char = player.Character
-        if not char then
-            for _, obj in pairs(esp) do obj.Visible = false end
-            return
-        end
-        
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        
-        if not (root and hum and hum.Health > 0) then
-            for _, obj in pairs(esp) do obj.Visible = false end
-            return
-        end
-        
-        if _G.TeamCheck and player.Team == LocalPlayer.Team then
-            for _, obj in pairs(esp) do obj.Visible = false end
-            return
-        end
-        
-        local rootPos, rootOnScreen = Camera:WorldToViewportPoint(root.Position)
-        if not rootOnScreen then
-            for _, obj in pairs(esp) do obj.Visible = false end
-            return
-        end
-        
-        local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
-        local botPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, -3.5, 0))
-        local boxHeight = math.abs(topPos.Y - botPos.Y)
-        local boxWidth = boxHeight / 1.8
-        
-        if _G.ESPBoxes then
-            esp.Box.Visible = true
-            esp.Box.Size = Vector2.new(boxWidth, boxHeight)
-            esp.Box.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2)
-            esp.Box.Color = _G.ESPRainbow and GetRainbowColor(0.8) or Color3.fromRGB(255, 255, 255)
-        else
-            esp.Box.Visible = false
-        end
-        
-        if _G.ESPTracers then
-            esp.Tracer.Visible = true
-            esp.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-            esp.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + boxHeight/2)
-            esp.Tracer.Color = _G.ESPRainbow and GetRainbowColor(0.6) or Color3.fromRGB(255, 255, 255)
-        else
-            esp.Tracer.Visible = false
-        end
-        
-        if _G.ESPNames then
-            local label = player.Name
-            if _G.ESPHealth then label = label .. " [" .. math.floor(hum.Health) .. " HP]" end
-            esp.NameTag.Visible = true
-            esp.NameTag.Text = label
-            esp.NameTag.Position = Vector2.new(rootPos.X, rootPos.Y - boxHeight/2 - 16)
-            esp.NameTag.Color = _G.ESPRainbow and GetRainbowColor(1) or Color3.fromRGB(255, 255, 255)
-        else
-            esp.NameTag.Visible = false
-        end
-        
-        if _G.ESPHealth then
-            local hpRatio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-            esp.HPBarBg.Visible = true
-            esp.HPBarBg.Size = Vector2.new(boxWidth, 3)
-            esp.HPBarBg.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2 - 6)
-            esp.HPBar.Visible = true
-            esp.HPBar.Size = Vector2.new(boxWidth * hpRatio, 3)
-            esp.HPBar.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2 - 6)
-            esp.HPBar.Color = hpRatio > 0.6 and Color3.fromRGB(0, 255, 0) or (hpRatio > 0.3 and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(255, 0, 0))
-        else
-            esp.HPBarBg.Visible = false
-            esp.HPBar.Visible = false
+    player.CharacterRemoving:Connect(function()
+        if espBoxes[player] then
+            espBoxes[player]:Destroy()
+            espBoxes[player] = nil
         end
     end)
 end
 
-for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then CreateESP(p) end
-end
-Players.PlayerAdded:Connect(CreateESP)
-Players.PlayerRemoving:Connect(RemoveESP)
+Players.PlayerAdded:Connect(createESP)
+for _, player in pairs(Players:GetPlayers()) do createESP(player) end
 
--- ==================== АІМБОТ ====================
-local function IsBehindWall(targetPart)
-    if not _G.WallCheck then return false end
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return true end
-    local origin = Camera.CFrame.Position
-    local direction = targetPart.Position - origin
-    local rayParams = RaycastParams.new()
-    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-    rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
-    local result = workspace:Raycast(origin, direction, rayParams)
-    if result then return not result.Instance:IsDescendantOf(targetPart.Parent) end
-    return false
-end
+Players.PlayerRemoving:Connect(function(player)
+    if espBoxes[player] then
+        espBoxes[player]:Destroy()
+        espBoxes[player] = nil
+    end
+end)
 
-local function GetAimTarget()
-    local bestDist = _G.FOV
-    local bestTarget = nil
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        if not char then continue end
-        local hum = char:FindFirstChild("Humanoid")
-        local hitPart = char:FindFirstChild(_G.HitPart)
-        if not (hum and hitPart) or hum.Health <= 0 then continue end
-        if _G.TeamCheck and plr.Team == LocalPlayer.Team then continue end
-        local screenPos, onScreen = Camera:WorldToViewportPoint(hitPart.Position)
-        if onScreen then
-            local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-            if screenDist < bestDist then
-                if not IsBehindWall(hitPart) then
-                    bestDist = screenDist
-                    bestTarget = hitPart
+-- ===== AUTOMATIC AIMBOT (Плавний софт-аїм) =====
+RunService.RenderStepped:Connect(function()
+    if not aimbotEnabled then return end
+    
+    local target = nil
+    local closestDist = 250 -- Радіус захоплення цілі (FOV)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+            -- Перевірка чи гравець живий
+            if player.Character.Humanoid.Health > 0 then
+                local rootPart = player.Character.HumanoidRootPart
+                local pos, onScreen = Camera:WorldToScreenPoint(rootPart.Position)
+                
+                if onScreen then
+                    local mousePos = Vector2.new(Mouse.X, Mouse.Y)
+                    local screenPos = Vector2.new(pos.X, pos.Y)
+                    local dist = (screenPos - mousePos).Magnitude
+                    
+                    if dist < closestDist then
+                        closestDist = dist
+                        target = rootPart
+                    end
                 end
             end
         end
     end
-    return bestTarget
-end
-
--- Аім по правій кнопці миші
-RunService.RenderStepped:Connect(function()
-    if _G.AimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-        local target = GetAimTarget()
-        if target then
-            local targetDirection = (target.Position - Camera.CFrame.Position).Unit
-            local smoothFrame = Camera.CFrame.LookVector:Lerp(targetDirection, _G.Smoothness)
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothFrame)
-        end
+    
+    -- Плавне наведення на ціль (без різких сіпань камери)
+    if target then
+        local targetPos = target.Position + Vector3.new(0, 1, 0) -- Трохи вище за Хітбокс (ближче до голови)
+        -- Коефіцієнт плавности (0.15 — софтово, камера м'яко "липне" до гравця)
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), 0.15)
     end
 end)
-
--- ==================== МЕНЮ ====================
-local AimTab = Window:NewTab("Аімбот")
-local AimSection = AimTab:NewSection("Налаштування Аіму")
-
-AimSection:NewToggle("Увімкнути Aimbot", "ПКМ для наведення", function(state)
-    _G.AimbotEnabled = state
-end)
-
-AimSection:NewSlider("Плавність", "Менше = швидше", 300, 10, function(s)
-    _G.Smoothness = s / 1000
-end)
-
-AimSection:NewSlider("FOV Радіус", "Зона захвату цілі", 500, 50, function(s)
-    _G.FOV = s
-end)
-
-AimSection:NewToggle("Team Check", "Не чіпати своїх", function(state)
-    _G.TeamCheck = state
-end)
-
-AimSection:NewToggle("Wall Check", "Не стріляти крізь стіни", function(state)
-    _G.WallCheck = state
-end)
-
-AimSection:NewButton("Ціль: Голова", function()
-    _G.HitPart = "Head"
-end)
-
-AimSection:NewButton("Ціль: Торс", function()
-    _G.HitPart = "HumanoidRootPart"
-end)
-
-local VisTab = Window:NewTab("ESP")
-local VisSection = VisTab:NewSection("Налаштування ESP")
-
-VisSection:NewToggle("Увімкнути ESP", "Показувати ворогів", function(state)
-    _G.ESPEnabled = state
-end)
-
-VisSection:NewToggle("Rainbow Mode", "Кольори веселки", function(state)
-    _G.ESPRainbow = state
-end)
-
-VisSection:NewToggle("Бокси", "", function(state)
-    _G.ESPBoxes = state
-end)
-
-VisSection:NewToggle("Трейсери", "Лінії до ворогів", function(state)
-    _G.ESPTracers = state
-end)
-
-VisSection:NewToggle("Імена", "", function(state)
-    _G.ESPNames = state
-end)
-
-VisSection:NewToggle("HP Бари", "", function(state)
-    _G.ESPHealth = state
-end)
-
-Library:Notify("Colin Hub", "F4 — меню | ПКМ — аім", 5)
