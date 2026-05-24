@@ -1,4 +1,4 @@
---== [ SOFT HUB V6 - ORBITAL ESP & PREMIUM UI ] ==--
+--== [ SOFT HUB V7 - ORBITAL TRAILS & FIXED UI ] ==--
 -- ВІДКРИТТЯ / ЗГОРТАННЯ: ПРАВИЙ SHIFT
 
 local Players = game:GetService("Players")
@@ -19,6 +19,7 @@ local fastAimEnabled = true
 local targetAuraRings = {}
 local currentTarget = nil
 local rainbowColor = Color3.fromRGB(255, 255, 255)
+local TRAIL_LENGTH = 10 -- Довжина шлейфу за кулями
 
 -- Очищення старого UI
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SoftHub")
@@ -46,7 +47,7 @@ corner.Parent = mainFrame
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 55)
 title.BackgroundTransparency = 1
-title.Text = "⋆⫸ SOFT HUB V6 ⫷⋆"
+title.Text = "⋆⫸ SOFT HUB V7 ⫷⋆"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 24
 title.Font = Enum.Font.GothamBold
@@ -57,7 +58,7 @@ titleStroke.Thickness = 1.5
 titleStroke.Color = Color3.fromRGB(0, 0, 0)
 titleStroke.Parent = title
 
--- === ФУНКЦІЇ КНОПОК З АНІМАЦІЄЮ НАЖАТТЯ ===
+-- === ФУНКЦІЇ КНОПОК (ВИПРАВЛЕНА ІНДИКАЦІЯ) ===
 local function createButton(text, pos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 200, 0, 48)
@@ -75,21 +76,19 @@ local function createButton(text, pos, callback)
     
     local stroke = Instance.new("UIStroke")
     stroke.Thickness = 2
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- Чітке відображення рамки
     stroke.Color = Color3.fromRGB(50, 50, 50)
     stroke.Parent = btn
     
-    -- Анімація натискання (UIScale)
     local scale = Instance.new("UIScale")
     scale.Parent = btn
     
     btn.MouseButton1Down:Connect(function()
         TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.92}):Play()
     end)
-    
     btn.MouseButton1Up:Connect(function()
         TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
     end)
-    
     btn.MouseLeave:Connect(function()
         TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
     end)
@@ -100,14 +99,21 @@ local function createButton(text, pos, callback)
 end
 
 local function toggleVisual(btn, stroke, state, textOn, textOff)
+    -- Тепер міняється не тільки текст і рамка, але й фон кнопки для 100% видимості
     if state then
         btn.Text = textOn
         stroke.Color = Color3.fromRGB(46, 204, 113)
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.1}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.fromRGB(20, 70, 30), -- Темно-зелений фон
+            BackgroundTransparency = 0.1
+        }):Play()
     else
         btn.Text = textOff
         stroke.Color = Color3.fromRGB(231, 76, 60)
-        TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.4}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {
+            BackgroundColor3 = Color3.fromRGB(15, 15, 15), -- Темний фон
+            BackgroundTransparency = 0.4
+        }):Play()
     end
 end
 
@@ -188,10 +194,15 @@ for _, p in pairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(applyESP)
 end
 
--- ==================== ТАРГЕТ АУРА (ОРБІТАЛЬНІ КУЛІ) ====================
+-- ==================== ОРБІТАЛЬНІ КУЛІ + ШЛЕЙФ ====================
 local function removeTargetAura()
     for _, data in pairs(targetAuraRings) do
         if data.element then data.element:Destroy() end
+        if data.trails then
+            for _, trailPart in pairs(data.trails) do
+                if trailPart then trailPart:Destroy() end
+            end
+        end
     end
     targetAuraRings = {}
 end
@@ -201,19 +212,41 @@ local function createTargetAura(targetChar)
     local root = targetChar:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Створюємо 3 сфери замість кілець
     for i = 1, 3 do
+        local color = i == 1 and Color3.fromRGB(255, 60, 60) or (i == 2 and Color3.fromRGB(160, 40, 255) or Color3.fromRGB(255, 255, 255))
+        
+        -- Основна куля
         local sphere = Instance.new("SphereHandleAdornment")
-        sphere.Radius = 0.65 -- Розмір самої кулі
+        sphere.Radius = 0.65
         sphere.AlwaysOnTop = true
         sphere.ZIndex = 10
-        sphere.Transparency = 0.15
-        sphere.Color3 = i == 1 and Color3.fromRGB(255, 60, 60) or (i == 2 and Color3.fromRGB(160, 40, 255) or Color3.fromRGB(255, 255, 255))
+        sphere.Transparency = 0.1
+        sphere.Color3 = color
         sphere.Adornee = root
         sphere.Parent = screenGui
         
-        -- Швидкість та унікальна вісь для кожної кулі
-        table.insert(targetAuraRings, {element = sphere, speed = 3.5 + (i * 0.5), axis = i})
+        -- Створення елементів для шлейфу (диму)
+        local trailParts = {}
+        for j = 1, TRAIL_LENGTH do
+            local tPart = Instance.new("SphereHandleAdornment")
+            tPart.Radius = 0.65 * (1 - (j / (TRAIL_LENGTH + 1))) -- Кулі стають меншими
+            tPart.AlwaysOnTop = true
+            tPart.ZIndex = 9
+            tPart.Transparency = 0.2 + (0.8 * (j / TRAIL_LENGTH)) -- Кулі прозорішають
+            tPart.Color3 = color
+            tPart.Adornee = root
+            tPart.Visible = false
+            tPart.Parent = screenGui
+            table.insert(trailParts, tPart)
+        end
+        
+        table.insert(targetAuraRings, {
+            element = sphere, 
+            speed = 3.5 + (i * 0.5), 
+            axis = i,
+            trails = trailParts,
+            history = {} -- Сюди будемо записувати минулі позиції кулі
+        })
     end
 end
 
@@ -235,7 +268,7 @@ RunService.RenderStepped:Connect(function(dt)
     rainbowColor = Color3.fromHSV(hue, 0.55, 0.75)
     mainFrame.BackgroundColor3 = rainbowColor
 
-    -- Анімація орбітальних куль
+    -- Анімація орбітальних куль та шлейфу
     if currentTarget and #targetAuraRings > 0 then
         for _, data in pairs(targetAuraRings) do
             local sphere = data.element
@@ -243,17 +276,34 @@ RunService.RenderStepped:Connect(function(dt)
                 local angle = timeTick * data.speed
                 local rotCF
                 
-                -- Кожна куля літає по своїй орбіті
+                -- Кожна куля літає по своїй осі
                 if data.axis == 1 then
-                    rotCF = CFrame.Angles(math.rad(20), angle, 0) -- Горизонтальна орбіта з легким нахилом
+                    rotCF = CFrame.Angles(math.rad(20), angle, 0)
                 elseif data.axis == 2 then
-                    rotCF = CFrame.Angles(angle, math.rad(60), 0) -- Вертикальна орбіта 1
+                    rotCF = CFrame.Angles(angle, math.rad(60), 0)
                 else
-                    rotCF = CFrame.Angles(angle, math.rad(-60), 0) -- Вертикальна орбіта 2
+                    rotCF = CFrame.Angles(angle, math.rad(-60), 0)
                 end
                 
-                -- Віддаляємо кулю від центру на 3.8 стада (радіус орбіти)
-                sphere.CFrame = rotCF * CFrame.new(0, 0, -3.8)
+                -- Позиція основної кулі
+                local currentCFrame = rotCF * CFrame.new(0, 0, -3.8)
+                sphere.CFrame = currentCFrame
+                
+                -- Оновлення історії позицій для шлейфу
+                table.insert(data.history, 1, currentCFrame)
+                if #data.history > TRAIL_LENGTH then
+                    table.remove(data.history, #data.history)
+                end
+                
+                -- Розстановка шлейфу за кулею
+                for j, trailPart in ipairs(data.trails) do
+                    if data.history[j] then
+                        trailPart.CFrame = data.history[j]
+                        trailPart.Visible = true
+                    else
+                        trailPart.Visible = false
+                    end
+                end
             end
         end
     end
@@ -323,4 +373,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("Soft Hub V6 loaded: Orbital ESP & Premium UI Active!")
+print("Soft Hub V7 loaded: Orbital Trails & Fixed UI Enabled!")
