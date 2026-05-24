@@ -1,6 +1,5 @@
---== [ SOFT HUB - FIXED LAYOUT + AIM INDICATOR ] ==--
--- АКТИВАЦІЯ / ЗГОРТАННЯ: ПРАВИЙ SHIFT
--- Додано: червоний ромб над ціллю + ім'я
+--== [ SOFT HUB - FULL FIXED ] ==--
+-- АКТИВАЦІЯ: ПРАВИЙ SHIFT
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,10 +16,9 @@ local espEnabled = true
 local aimSmoothness = 0.17
 local wallCheck = true
 
-local espBoxes = {}
+local espBoxes = {}        -- {[player] = box}
+local indicatorBillboard = nil
 local currentTarget = nil
-local targetIndicator = nil  -- Індикатор над ціллю
-local rainbowColor = Color3.fromRGB(255, 255, 255)
 
 -- Видалення старого GUI
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SoftHub")
@@ -32,16 +30,13 @@ screenGui.ResetOnSpawn = false
 if syn and syn.protect_gui then syn.protect_gui(screenGui) end
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- === СТВОРЕННЯ ІНДИКАТОРА ЦІЛІ ===
+-- === СТВОРЕННЯ ІНДИКАТОРА (ПРАВИЛЬНО: чіпляємо до HumanoidRootPart) ===
 local function createTargetIndicator()
-    if targetIndicator then targetIndicator:Destroy() end
-    
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "TargetIndicator"
-    billboard.Size = UDim2.new(0, 80, 0, 80)
-    billboard.Adornee = nil
+    billboard.Size = UDim2.new(0, 100, 0, 70)
     billboard.AlwaysOnTop = true
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
     billboard.Parent = screenGui
     
     local frame = Instance.new("Frame")
@@ -49,19 +44,23 @@ local function createTargetIndicator()
     frame.BackgroundTransparency = 1
     frame.Parent = billboard
     
-    -- Червоний ромб (стрілка)
-    local arrow = Instance.new("ImageLabel")
-    arrow.Size = UDim2.new(0, 40, 0, 40)
-    arrow.Position = UDim2.new(0.5, -20, 0, 0)
-    arrow.BackgroundTransparency = 1
-    arrow.Image = "rbxassetid://6031098373"  -- червоний трикутник/ромб
-    arrow.ImageColor3 = Color3.fromRGB(255, 50, 50)
-    arrow.Parent = frame
+    -- Ромб (трикутник повернутий) через Frame + Rotation
+    local diamond = Instance.new("Frame")
+    diamond.Size = UDim2.new(0, 30, 0, 30)
+    diamond.Position = UDim2.new(0.5, -15, 0, 0)
+    diamond.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    diamond.BorderSizePixel = 0
+    diamond.Rotation = 45  -- Повертаємо квадрат на 45° = ромб
+    diamond.Parent = frame
+    
+    local diamondCorner = Instance.new("UICorner")
+    diamondCorner.CornerRadius = UDim.new(0, 4)
+    diamondCorner.Parent = diamond
     
     -- Ім'я гравця
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 20)
-    nameLabel.Position = UDim2.new(0, 0, 0, 45)
+    nameLabel.Position = UDim2.new(0, 0, 0, 35)
     nameLabel.BackgroundTransparency = 1
     nameLabel.Text = ""
     nameLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -70,10 +69,9 @@ local function createTargetIndicator()
     nameLabel.TextStrokeTransparency = 0.3
     nameLabel.Parent = frame
     
-    -- Пульсуюча анімація
-    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-    local tween = TweenService:Create(arrow, tweenInfo, {ImageColor3 = Color3.fromRGB(255, 150, 150)})
-    tween:Play()
+    -- Пульсація
+    local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    TweenService:Create(diamond, tweenInfo, {BackgroundColor3 = Color3.fromRGB(255, 80, 80)}):Play()
     
     return billboard, nameLabel
 end
@@ -91,7 +89,6 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 16)
 corner.Parent = mainFrame
 
--- Заголовок
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 60)
 title.BackgroundTransparency = 1
@@ -106,6 +103,7 @@ titleStroke.Thickness = 1.5
 titleStroke.Color = Color3.fromRGB(0, 0, 0)
 titleStroke.Parent = title
 
+-- === ФУНКЦІЯ КНОПКИ З КОЛЬОРОВОЮ ІНДИКАЦІЄЮ ===
 local function createToggleButton(text, pos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 200, 0, 50)
@@ -117,68 +115,75 @@ local function createToggleButton(text, pos, callback)
     btn.Font = Enum.Font.GothamMedium
     btn.Text = text
     
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(0, 255, 0)  -- Зелений = ввімкнено
+    stroke.Transparency = 0  -- видима обводка
+    stroke.Parent = btn
+    
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, 12)
     c.Parent = btn
     
     btn.Parent = mainFrame
-    btn.MouseButton1Click:Connect(callback)
-    return btn
+    
+    btn.MouseButton1Click:Connect(function()
+        callback()
+        -- Оновлюємо колір обводки після зміни стану
+        local isOn = btn.Text:match("ON") ~= nil
+        stroke.Color = isOn and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    end)
+    
+    return btn, stroke
 end
 
--- === КНОПКИ ===
-local aimToggle = createToggleButton("✓ Aimbot (ON)", UDim2.new(0, 30, 0, 80), function()
+-- === СТВОРЕННЯ КНОПОК ===
+local aimToggle, aimStroke = createToggleButton("✓ Aimbot (ON)", UDim2.new(0, 30, 0, 80), function()
     aimbotEnabled = not aimbotEnabled
     aimToggle.Text = aimbotEnabled and "✓ Aimbot (ON)" or "✗ Aimbot (OFF)"
-    aimToggle.TextColor3 = aimbotEnabled and Color3.fromRGB(255,255,255) or Color3.fromRGB(150,150,150)
 end)
 
-local espToggle = createToggleButton("✓ ESP (ON)", UDim2.new(0, 250, 0, 80), function()
+local espToggle, espStroke = createToggleButton("✓ ESP (ON)", UDim2.new(0, 250, 0, 80), function()
     espEnabled = not espEnabled
     espToggle.Text = espEnabled and "✓ ESP (ON)" or "✗ ESP (OFF)"
-    espToggle.TextColor3 = espEnabled and Color3.fromRGB(255,255,255) or Color3.fromRGB(150,150,150)
     for _, box in pairs(espBoxes) do
         if box then box.Visible = espEnabled end
     end
 end)
 
-local wallToggle = createToggleButton("✓ Wall Check (ON)", UDim2.new(0, 30, 0, 145), function()
+local wallToggle, wallStroke = createToggleButton("✓ Wall Check (ON)", UDim2.new(0, 30, 0, 145), function()
     wallCheck = not wallCheck
     wallToggle.Text = wallCheck and "✓ Wall Check (ON)" or "✗ Wall Check (OFF)"
-    wallToggle.TextColor3 = wallCheck and Color3.fromRGB(255,255,255) or Color3.fromRGB(150,150,150)
 end)
 
 local speedLabel = Instance.new("TextLabel")
 speedLabel.Size = UDim2.new(0, 420, 0, 30)
 speedLabel.Position = UDim2.new(0, 35, 0, 215)
 speedLabel.BackgroundTransparency = 1
-speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness) .. " (Lower = Faster)"
+speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness)
 speedLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
 speedLabel.TextSize = 15
 speedLabel.TextXAlignment = Enum.TextXAlignment.Left
 speedLabel.Font = Enum.Font.GothamMedium
 speedLabel.Parent = mainFrame
 
-local speedMinus = createToggleButton("- Повільніше", UDim2.new(0, 30, 0, 255), function()
+local speedMinus = createToggleButton("-", UDim2.new(0, 30, 0, 255), function()
     aimSmoothness = math.clamp(aimSmoothness + 0.02, 0.05, 0.50)
-    speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness) .. " (Lower = Faster)"
+    speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness)
 end)
+speedMinus.Size = UDim2.new(0, 90, 0, 45)
 
-local speedPlus = createToggleButton("+ Швидше", UDim2.new(0, 250, 0, 255), function()
+local speedPlus = createToggleButton("+", UDim2.new(0, 360, 0, 255), function()
     aimSmoothness = math.clamp(aimSmoothness - 0.02, 0.05, 0.50)
-    speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness) .. " (Lower = Faster)"
+    speedLabel.Text = "Aim Smoothness: " .. string.format("%.2f", aimSmoothness)
 end)
+speedPlus.Size = UDim2.new(0, 90, 0, 45)
 
 -- === АНІМАЦІЯ МЕНЮ ===
-local function animateGUI(state)
-    TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundTransparency = state and 0.15 or 1}):Play()
-end
-
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         mainFrame.Visible = not mainFrame.Visible
-        if mainFrame.Visible then animateGUI(true) end
     end
 end)
 
@@ -186,16 +191,17 @@ end)
 local hue = 0
 RunService.RenderStepped:Connect(function(dt)
     hue = (hue + 0.04 * dt) % 1
-    rainbowColor = Color3.fromHSV(hue, 0.6, 0.8)
-    mainFrame.BackgroundColor3 = rainbowColor
+    mainFrame.BackgroundColor3 = Color3.fromHSV(hue, 0.6, 0.8)
 end)
 
--- === ESP ===
+-- === ESP (ПРАВИЛЬНЕ ВИДАЛЕННЯ) ===
 local function createESP(player)
     if player == LocalPlayer then return end
+    
     local function applyESP(char)
-        local root = char:WaitForChild("HumanoidRootPart", 5)
+        local root = char:FindFirstChild("HumanoidRootPart")
         if not root then return end
+        
         local box = Instance.new("BoxHandleAdornment")
         box.Size = Vector3.new(4, 6, 4)
         box.AlwaysOnTop = true
@@ -207,20 +213,36 @@ local function createESP(player)
         box.Parent = screenGui
         espBoxes[player] = box
     end
+    
     if player.Character then applyESP(player.Character) end
-    player.CharacterAdded:Connect(applyESP)
+    
+    -- Підписка на події
+    player.CharacterAdded:Connect(function(char)
+        if espBoxes[player] then espBoxes[player]:Destroy() end
+        applyESP(char)
+    end)
+    
     player.CharacterRemoving:Connect(function()
-        if espBoxes[player] then espBoxes[player]:Destroy(); espBoxes[player] = nil end
+        if espBoxes[player] then 
+            espBoxes[player]:Destroy()
+            espBoxes[player] = nil
+        end
     end)
 end
 
-for _, plr in pairs(Players:GetPlayers()) do createESP(plr) end
+for _, plr in pairs(Players:GetPlayers()) do 
+    task.spawn(function() createESP(plr) end)
+end
+
 Players.PlayerAdded:Connect(createESP)
 Players.PlayerRemoving:Connect(function(plr)
-    if espBoxes[plr] then espBoxes[plr]:Destroy(); espBoxes[plr] = nil end
+    if espBoxes[plr] then 
+        espBoxes[plr]:Destroy()
+        espBoxes[plr] = nil
+    end
 end)
 
--- === AIMBOT + ІНДИКАТОР ЦІЛІ ===
+-- === AIMBOT + ІНДИКАТОР ===
 local indicator, indicatorName = createTargetIndicator()
 
 local function isWallBetween(origin, targetPos, targetCharacter)
@@ -263,9 +285,9 @@ RunService.RenderStepped:Connect(function()
     end
     
     if bestTargetPart and bestTarget then
-        -- Оновлення індикатора
-        if indicator.Adornee ~= bestTarget.Character then
-            indicator.Adornee = bestTarget.Character
+        -- ✅ ПРАВИЛЬНО: чіпляємо BillboardGui до HumanoidRootPart
+        if indicator.Adornee ~= bestTargetPart then
+            indicator.Adornee = bestTargetPart
             indicatorName.Text = bestTarget.Name
         end
         -- Наведення камери
@@ -276,4 +298,4 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("Soft Hub Fixed Layout + Target Indicator Loaded! | Right Shift")
+print("✅ SOFT HUB FULL FIXED | Right Shift")
