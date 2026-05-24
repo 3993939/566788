@@ -1,4 +1,4 @@
---== [ SOFT HUB V4 - FAST AIM & FIXED ESP ] ==--
+--== [ SOFT HUB V5 - SMART AIM (HEAD PRIORITY) ] ==--
 -- ВІДКРИТТЯ / ЗГОРТАННЯ: ПРАВИЙ SHIFT
 
 local Players = game:GetService("Players")
@@ -14,13 +14,13 @@ local Mouse = LocalPlayer:GetMouse()
 local aimbotEnabled = true
 local espEnabled = true
 local wallCheck = true
-local fastAimEnabled = true -- Нова функція для швидкого аїму
+local fastAimEnabled = true
 
 local targetAuraRings = {}
 local currentTarget = nil
 local rainbowColor = Color3.fromRGB(255, 255, 255)
 
--- Очищення старого UI перед запуском
+-- Очищення старого UI
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SoftHub")
 if oldGui then oldGui:Destroy() end
 
@@ -32,7 +32,7 @@ screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- === ГОЛОВНЕ ВІКНО ===
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 480, 0, 230) -- Компактний та зручний розмір
+mainFrame.Size = UDim2.new(0, 480, 0, 230)
 mainFrame.Position = UDim2.new(0.5, -240, 0.5, -115)
 mainFrame.BackgroundTransparency = 0.25
 mainFrame.BorderSizePixel = 0
@@ -43,11 +43,10 @@ local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 16)
 corner.Parent = mainFrame
 
--- Заголовок
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 55)
 title.BackgroundTransparency = 1
-title.Text = "⋆⫸ SOFT HUB V4 ⫷⋆"
+title.Text = "⋆⫸ SOFT HUB V5 ⫷⋆"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 24
 title.Font = Enum.Font.GothamBold
@@ -58,7 +57,7 @@ titleStroke.Thickness = 1.5
 titleStroke.Color = Color3.fromRGB(0, 0, 0)
 titleStroke.Parent = title
 
--- === УНІВЕРСАЛЬНА ФУНКЦІЯ КНОПОК ===
+-- === ФУНКЦІЇ КНОПОК ===
 local function createButton(text, pos, callback)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 200, 0, 48)
@@ -87,28 +86,24 @@ end
 local function toggleVisual(btn, stroke, state, textOn, textOff)
     if state then
         btn.Text = textOn
-        stroke.Color = Color3.fromRGB(46, 204, 113) -- Зелений статус активності
+        stroke.Color = Color3.fromRGB(46, 204, 113)
         TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.1}):Play()
     else
         btn.Text = textOff
-        stroke.Color = Color3.fromRGB(231, 76, 60) -- Червоний статус вимкнення
+        stroke.Color = Color3.fromRGB(231, 76, 60)
         TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundTransparency = 0.4}):Play()
     end
 end
 
--- === РОЗМІЩЕННЯ КНОПОК У GUI ===
-
--- Рядок 1: Аїмбот та ЕСП (Тепер чітко видно у меню)
+-- === ІНТЕРФЕЙС ===
 local aimToggle, aimStroke = createButton("", UDim2.new(0, 30, 0, 70), function()
     aimbotEnabled = not aimbotEnabled
-    toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Aimbot: ON", "✗ Aimbot: OFF")
+    toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Smart Aim: ON", "✗ Smart Aim: OFF")
 end)
 
 local espToggle, espStroke = createButton("", UDim2.new(0, 250, 0, 70), function()
     espEnabled = not espEnabled
     toggleVisual(espToggle, espStroke, espEnabled, "✓ ESP: ON", "✗ ESP: OFF")
-    
-    -- Миттєве оновлення хайлайтів для всіх гравців
     for _, p in pairs(Players:GetPlayers()) do
         if p.Character and p.Character:FindFirstChild("SoftHubESP") then
             p.Character.SoftHubESP.Enabled = espEnabled
@@ -116,7 +111,6 @@ local espToggle, espStroke = createButton("", UDim2.new(0, 250, 0, 70), function
     end
 end)
 
--- Рядок 2: Перевірка стін та Супер-швидкий аїм
 local wallToggle, wallStroke = createButton("", UDim2.new(0, 30, 0, 135), function()
     wallCheck = not wallCheck
     toggleVisual(wallToggle, wallStroke, wallCheck, "✓ Wall Check: ON", "✗ Wall Check: OFF")
@@ -127,13 +121,11 @@ local fastAimToggle, fastAimStroke = createButton("", UDim2.new(0, 250, 0, 135),
     toggleVisual(fastAimToggle, fastAimStroke, fastAimEnabled, "✓ Fast Aim: ON", "✗ Fast Aim: OFF")
 end)
 
--- Встановлення базових значень при старті скрипту
-toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Aimbot: ON", "✗ Aimbot: OFF")
+toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Smart Aim: ON", "✗ Smart Aim: OFF")
 toggleVisual(espToggle, espStroke, espEnabled, "✓ ESP: ON", "✗ ESP: OFF")
 toggleVisual(wallToggle, wallStroke, wallCheck, "✓ Wall Check: ON", "✗ Wall Check: OFF")
 toggleVisual(fastAimToggle, fastAimStroke, fastAimEnabled, "✓ Fast Aim: ON", "✗ Fast Aim: OFF")
 
--- Відкриття/Закриття меню на Right Shift
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
@@ -149,11 +141,11 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- ==================== НАДІЙНЕ СИЛУЕТНЕ ESP ====================
+-- ==================== ESP ====================
 local function applyESP(character)
     if not character then return end
     local player = Players:GetPlayerFromCharacter(character)
-    if player == LocalPlayer then return end -- Не підсвічуємо себе
+    if player == LocalPlayer then return end
     
     local hum = character:WaitForChild("Humanoid", 5)
     if not hum then return end
@@ -162,7 +154,7 @@ local function applyESP(character)
     
     local hl = Instance.new("Highlight")
     hl.Name = "SoftHubESP"
-    hl.FillColor = Color3.fromRGB(255, 110, 180) -- Гарний неоново-рожевий колір
+    hl.FillColor = Color3.fromRGB(255, 110, 180)
     hl.OutlineColor = Color3.fromRGB(255, 255, 255)
     hl.FillTransparency = 0.55
     hl.OutlineTransparency = 0.15
@@ -180,7 +172,7 @@ for _, p in pairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(applyESP)
 end
 
--- ==================== АНІМОВАНА ТАРГЕТ АУРА ====================
+-- ==================== ТАРГЕТ АУРА ====================
 local function removeTargetAura()
     for _, data in pairs(targetAuraRings) do
         if data.element then data.element:Destroy() end
@@ -193,7 +185,6 @@ local function createTargetAura(targetChar)
     local root = targetChar:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Створюємо систему з 3 неонових кілець у ScreenGui для надійності рендеру
     for i = 1, 3 do
         local ring = Instance.new("CylinderHandleAdornment")
         ring.Radius = 3.4 + (i * 0.4)
@@ -204,13 +195,13 @@ local function createTargetAura(targetChar)
         ring.Transparency = 0.2
         ring.Color3 = i == 1 and Color3.fromRGB(255, 60, 60) or (i == 2 and Color3.fromRGB(160, 40, 255) or Color3.fromRGB(255, 255, 255))
         ring.Adornee = root
-        ring.Parent = screenGui -- Надійне відображення поверх усього
+        ring.Parent = screenGui
         
         table.insert(targetAuraRings, {element = ring, speed = i * 4.5, axis = i})
     end
 end
 
--- ==================== ОСНОВНИЙ ЦИКЛ ОБРОБКИ ====================
+-- ==================== РОЗУМНИЙ АЇМБОТ (Голова -> Тіло) ====================
 local function isWallBetween(origin, targetPos, targetCharacter)
     if not wallCheck then return false end
     local rayParams = RaycastParams.new()
@@ -223,12 +214,12 @@ local hue = 0
 RunService.RenderStepped:Connect(function(dt)
     local timeTick = tick()
     
-    -- 1. Райдужний перелив меню
+    -- Анімація меню
     hue = (hue + 0.03 * dt) % 1
     rainbowColor = Color3.fromHSV(hue, 0.55, 0.75)
     mainFrame.BackgroundColor3 = rainbowColor
 
-    -- 2. Оновлення обертання таргет-аури
+    -- Анімація кілець
     if currentTarget and #targetAuraRings > 0 then
         for _, data in pairs(targetAuraRings) do
             local ring = data.element
@@ -237,13 +228,11 @@ RunService.RenderStepped:Connect(function(dt)
                 local rotX = data.axis == 1 and angle or (data.axis == 3 and -angle or 0)
                 local rotY = data.axis == 2 and angle or (data.axis == 1 and -angle or 0)
                 local rotZ = data.axis == 3 and angle or (data.axis == 2 and -angle or 0)
-                
                 ring.CFrame = CFrame.Angles(rotX, rotY, rotZ) * CFrame.Angles(math.rad(90), 0, 0)
             end
         end
     end
 
-    -- 3. Логіка роботи Аїмботу
     if not aimbotEnabled then 
         removeTargetAura()
         currentTarget = nil
@@ -256,15 +245,37 @@ RunService.RenderStepped:Connect(function(dt)
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
             local root = player.Character:FindFirstChild("HumanoidRootPart")
             local hum = player.Character:FindFirstChild("Humanoid")
-            if root and hum and hum.Health > 0 then
-                local pos, onScreen = Camera:WorldToScreenPoint(root.Position)
-                if onScreen then
+            
+            if hum and hum.Health > 0 then
+                local validPart = nil
+                
+                -- ПРІОРИТЕТ 1: ГОЛОВА
+                if head then
+                    local pos, onScreen = Camera:WorldToScreenPoint(head.Position)
+                    if onScreen and not isWallBetween(Camera.CFrame.Position, head.Position, player.Character) then
+                        validPart = head
+                    end
+                end
+                
+                -- ПРІОРИТЕТ 2: ТІЛО (Якщо голова закрита або її немає)
+                if not validPart and root then
+                    local pos, onScreen = Camera:WorldToScreenPoint(root.Position)
+                    if onScreen and not isWallBetween(Camera.CFrame.Position, root.Position, player.Character) then
+                        validPart = root
+                    end
+                end
+                
+                -- Якщо знайшли відкриту частину, перевіряємо чи вона найближче до центру екрану
+                if validPart then
+                    local pos = Camera:WorldToScreenPoint(validPart.Position)
                     local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                    if dist < closestDist and not isWallBetween(Camera.CFrame.Position, root.Position, player.Character) then
+                    
+                    if dist < closestDist then
                         closestDist = dist
-                        bestTargetPart = root
+                        bestTargetPart = validPart
                         bestTargetChar = player.Character
                     end
                 end
@@ -276,12 +287,15 @@ RunService.RenderStepped:Connect(function(dt)
     if bestTargetPart and bestTargetChar then
         if currentTarget ~= bestTargetChar then
             currentTarget = bestTargetChar
-            createTargetAura(currentTarget) -- Запуск кілець навколо нової цілі
+            createTargetAura(currentTarget)
         end
         
-        -- Розрахунок швидкості: Fast Aim робить коефіцієнт набагато вищим (0.55 проти 0.22)
         local currentSmoothness = fastAimEnabled and 0.55 or 0.22
-        local targetPos = bestTargetPart.Position + Vector3.new(0, 0.4, 0)
+        
+        -- Якщо цілимось у тіло, беремо трохи вище центру (ближче до шиї), якщо в голову — чітко в неї
+        local offset = (bestTargetPart.Name == "HumanoidRootPart") and Vector3.new(0, 0.5, 0) or Vector3.new(0, 0, 0)
+        local targetPos = bestTargetPart.Position + offset
+        
         Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), currentSmoothness)
     else
         removeTargetAura()
@@ -289,4 +303,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("Soft Hub V4 successfully loaded! Fast Aim and Fixed ESP ready.")
+print("Soft Hub V5 loaded: Smart Aim Active (Head -> Body)")
