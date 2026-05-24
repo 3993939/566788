@@ -1,4 +1,4 @@
---== [ SOFT HUB V7 - ORBITAL TRAILS & FIXED UI ] ==--
+--== [ SOFT HUB V8 - PREMIUM UI, SMOOTH AIM & DRAGGABLE ] ==--
 -- ВІДКРИТТЯ / ЗГОРТАННЯ: ПРАВИЙ SHIFT
 
 local Players = game:GetService("Players")
@@ -18,8 +18,7 @@ local fastAimEnabled = true
 
 local targetAuraRings = {}
 local currentTarget = nil
-local rainbowColor = Color3.fromRGB(255, 255, 255)
-local TRAIL_LENGTH = 10 -- Довжина шлейфу за кулями
+local TRAIL_LENGTH = 12
 
 -- Очищення старого UI
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SoftHub")
@@ -31,135 +30,149 @@ screenGui.ResetOnSpawn = false
 if syn and syn.protect_gui then syn.protect_gui(screenGui) end
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- === ГОЛОВНЕ ВІКНО ===
+-- === СУЧАСНИЙ ГОЛОВНИЙ ФРЕЙМ ===
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 480, 0, 230)
-mainFrame.Position = UDim2.new(0.5, -240, 0.5, -115)
-mainFrame.BackgroundTransparency = 0.25
+mainFrame.Size = UDim2.new(0, 320, 0, 280) -- Більш компактний
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -140)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 mainFrame.BorderSizePixel = 0
 mainFrame.Visible = false
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 16)
+corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = mainFrame
 
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1.5
+stroke.Color = Color3.fromRGB(60, 60, 60)
+stroke.Parent = mainFrame
+
+-- Заголовок
+local topBar = Instance.new("Frame")
+topBar.Size = UDim2.new(1, 0, 0, 40)
+topBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+topBar.Parent = mainFrame
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0, 8)
+topCorner.Parent = topBar
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 55)
+title.Size = UDim2.new(1, -20, 1, 0)
+title.Position = UDim2.new(0, 20, 0, 0)
 title.BackgroundTransparency = 1
-title.Text = "⋆⫸ SOFT HUB V7 ⫷⋆"
+title.Text = "SOFT HUB V8"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 24
+title.TextSize = 16
 title.Font = Enum.Font.GothamBold
-title.Parent = mainFrame
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = topBar
 
-local titleStroke = Instance.new("UIStroke")
-titleStroke.Thickness = 1.5
-titleStroke.Color = Color3.fromRGB(0, 0, 0)
-titleStroke.Parent = title
+-- Контейнер для перемикачів
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -40, 1, -60)
+contentFrame.Position = UDim2.new(0, 20, 0, 50)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = mainFrame
 
--- === ФУНКЦІЇ КНОПОК (ВИПРАВЛЕНА ІНДИКАЦІЯ) ===
-local function createButton(text, pos, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 200, 0, 48)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    btn.BackgroundTransparency = 0.3
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 14
-    btn.Font = Enum.Font.GothamBold
-    btn.Text = text
-    
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, 10)
-    c.Parent = btn
-    
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- Чітке відображення рамки
-    stroke.Color = Color3.fromRGB(50, 50, 50)
-    stroke.Parent = btn
-    
-    local scale = Instance.new("UIScale")
-    scale.Parent = btn
-    
-    btn.MouseButton1Down:Connect(function()
-        TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 0.92}):Play()
-    end)
-    btn.MouseButton1Up:Connect(function()
-        TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(scale, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Scale = 1}):Play()
-    end)
-    
-    btn.Parent = mainFrame
-    btn.MouseButton1Click:Connect(callback)
-    return btn, stroke
-end
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 15)
+layout.Parent = contentFrame
 
-local function toggleVisual(btn, stroke, state, textOn, textOff)
-    -- Тепер міняється не тільки текст і рамка, але й фон кнопки для 100% видимості
-    if state then
-        btn.Text = textOn
-        stroke.Color = Color3.fromRGB(46, 204, 113)
-        TweenService:Create(btn, TweenInfo.new(0.15), {
-            BackgroundColor3 = Color3.fromRGB(20, 70, 30), -- Темно-зелений фон
-            BackgroundTransparency = 0.1
-        }):Play()
-    else
-        btn.Text = textOff
-        stroke.Color = Color3.fromRGB(231, 76, 60)
-        TweenService:Create(btn, TweenInfo.new(0.15), {
-            BackgroundColor3 = Color3.fromRGB(15, 15, 15), -- Темний фон
-            BackgroundTransparency = 0.4
-        }):Play()
+-- === ФУНКЦІЯ ПЕРЕТЯГУВАННЯ GUI (DRAG) ===
+local dragging, dragInput, dragStart, startPos
+topBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
     end
-end
-
--- === ІНТЕРФЕЙС ===
-local aimToggle, aimStroke = createButton("", UDim2.new(0, 30, 0, 70), function()
-    aimbotEnabled = not aimbotEnabled
-    toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Smart Aim: ON", "✗ Smart Aim: OFF")
+end)
+topBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
 
-local espToggle, espStroke = createButton("", UDim2.new(0, 250, 0, 70), function()
-    espEnabled = not espEnabled
-    toggleVisual(espToggle, espStroke, espEnabled, "✓ ESP: ON", "✗ ESP: OFF")
+-- === ФУНКЦІЯ СТВОРЕННЯ СВІТЧІВ ===
+local function createToggle(name, defaultState, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(1, 0, 0, 35)
+    toggleFrame.BackgroundTransparency = 1
+    toggleFrame.Parent = contentFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextSize = 14
+    label.Font = Enum.Font.GothamMedium
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = toggleFrame
+    
+    local switchBtn = Instance.new("TextButton")
+    switchBtn.Size = UDim2.new(0, 44, 0, 24)
+    switchBtn.Position = UDim2.new(1, -44, 0.5, -12)
+    switchBtn.BackgroundColor3 = defaultState and Color3.fromRGB(46, 204, 113) or Color3.fromRGB(60, 60, 60)
+    switchBtn.Text = ""
+    switchBtn.Parent = toggleFrame
+    
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(1, 0)
+    switchCorner.Parent = switchBtn
+    
+    local circle = Instance.new("Frame")
+    circle.Size = UDim2.new(0, 20, 0, 20)
+    circle.Position = defaultState and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 2, 0.5, -10)
+    circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    circle.Parent = switchBtn
+    
+    local circleCorner = Instance.new("UICorner")
+    circleCorner.CornerRadius = UDim.new(1, 0)
+    circleCorner.Parent = circle
+    
+    local state = defaultState
+    switchBtn.MouseButton1Click:Connect(function()
+        state = not state
+        if state then
+            TweenService:Create(switchBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(46, 204, 113)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.2), {Position = UDim2.new(1, -22, 0.5, -10)}):Play()
+        else
+            TweenService:Create(switchBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 60)}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -10)}):Play()
+        end
+        callback(state)
+    end)
+end
+
+-- === СТВОРЕННЯ ЕЛЕМЕНТІВ UI ===
+createToggle("Smart Aimbot", aimbotEnabled, function(val) aimbotEnabled = val end)
+createToggle("ESP Highlight", espEnabled, function(val) 
+    espEnabled = val
     for _, p in pairs(Players:GetPlayers()) do
         if p.Character and p.Character:FindFirstChild("SoftHubESP") then
             p.Character.SoftHubESP.Enabled = espEnabled
         end
     end
 end)
+createToggle("Wall Check", wallCheck, function(val) wallCheck = val end)
+createToggle("Fast Aim", fastAimEnabled, function(val) fastAimEnabled = val end)
 
-local wallToggle, wallStroke = createButton("", UDim2.new(0, 30, 0, 135), function()
-    wallCheck = not wallCheck
-    toggleVisual(wallToggle, wallStroke, wallCheck, "✓ Wall Check: ON", "✗ Wall Check: OFF")
-end)
-
-local fastAimToggle, fastAimStroke = createButton("", UDim2.new(0, 250, 0, 135), function()
-    fastAimEnabled = not fastAimEnabled
-    toggleVisual(fastAimToggle, fastAimStroke, fastAimEnabled, "✓ Fast Aim: ON", "✗ Fast Aim: OFF")
-end)
-
-toggleVisual(aimToggle, aimStroke, aimbotEnabled, "✓ Smart Aim: ON", "✗ Smart Aim: OFF")
-toggleVisual(espToggle, espStroke, espEnabled, "✓ ESP: ON", "✗ ESP: OFF")
-toggleVisual(wallToggle, wallStroke, wallCheck, "✓ Wall Check: ON", "✗ Wall Check: OFF")
-toggleVisual(fastAimToggle, fastAimStroke, fastAimEnabled, "✓ Fast Aim: ON", "✗ Fast Aim: OFF")
-
+-- Відкриття/Закриття
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
-        if mainFrame.Visible then
-            local t = TweenService:Create(mainFrame, TweenInfo.new(0.12), {BackgroundTransparency = 1})
-            t:Play()
-            t.Completed:Connect(function() mainFrame.Visible = false end)
-        else
-            mainFrame.BackgroundTransparency = 1
-            mainFrame.Visible = true
-            TweenService:Create(mainFrame, TweenInfo.new(0.12), {BackgroundTransparency = 0.25}):Play()
-        end
+        mainFrame.Visible = not mainFrame.Visible
     end
 end)
 
@@ -194,7 +207,7 @@ for _, p in pairs(Players:GetPlayers()) do
     p.CharacterAdded:Connect(applyESP)
 end
 
--- ==================== ОРБІТАЛЬНІ КУЛІ + ШЛЕЙФ ====================
+-- ==================== ОРБІТАЛЬНІ КУЛІ (ДИНАМІЧНІ) ====================
 local function removeTargetAura()
     for _, data in pairs(targetAuraRings) do
         if data.element then data.element:Destroy() end
@@ -215,7 +228,6 @@ local function createTargetAura(targetChar)
     for i = 1, 3 do
         local color = i == 1 and Color3.fromRGB(255, 60, 60) or (i == 2 and Color3.fromRGB(160, 40, 255) or Color3.fromRGB(255, 255, 255))
         
-        -- Основна куля
         local sphere = Instance.new("SphereHandleAdornment")
         sphere.Radius = 0.65
         sphere.AlwaysOnTop = true
@@ -225,14 +237,13 @@ local function createTargetAura(targetChar)
         sphere.Adornee = root
         sphere.Parent = screenGui
         
-        -- Створення елементів для шлейфу (диму)
         local trailParts = {}
         for j = 1, TRAIL_LENGTH do
             local tPart = Instance.new("SphereHandleAdornment")
-            tPart.Radius = 0.65 * (1 - (j / (TRAIL_LENGTH + 1))) -- Кулі стають меншими
+            tPart.Radius = 0.65 * (1 - (j / (TRAIL_LENGTH + 1)))
             tPart.AlwaysOnTop = true
             tPart.ZIndex = 9
-            tPart.Transparency = 0.2 + (0.8 * (j / TRAIL_LENGTH)) -- Кулі прозорішають
+            tPart.Transparency = 0.2 + (0.8 * (j / TRAIL_LENGTH))
             tPart.Color3 = color
             tPart.Adornee = root
             tPart.Visible = false
@@ -245,12 +256,12 @@ local function createTargetAura(targetChar)
             speed = 3.5 + (i * 0.5), 
             axis = i,
             trails = trailParts,
-            history = {} -- Сюди будемо записувати минулі позиції кулі
+            history = {}
         })
     end
 end
 
--- ==================== РОЗУМНИЙ АЇМБОТ (Голова -> Тіло) ====================
+-- ==================== М'ЯКИЙ ТА АКУРАТНИЙ АЇМБОТ ====================
 local function isWallBetween(origin, targetPos, targetCharacter)
     if not wallCheck then return false end
     local rayParams = RaycastParams.new()
@@ -259,16 +270,10 @@ local function isWallBetween(origin, targetPos, targetCharacter)
     return workspace:Raycast(origin, targetPos - origin, rayParams) ~= nil
 end
 
-local hue = 0
 RunService.RenderStepped:Connect(function(dt)
     local timeTick = tick()
     
-    -- Анімація меню
-    hue = (hue + 0.03 * dt) % 1
-    rainbowColor = Color3.fromHSV(hue, 0.55, 0.75)
-    mainFrame.BackgroundColor3 = rainbowColor
-
-    -- Анімація орбітальних куль та шлейфу
+    -- Динамічна анімація сфер (Орбіта + Пульсація)
     if currentTarget and #targetAuraRings > 0 then
         for _, data in pairs(targetAuraRings) do
             local sphere = data.element
@@ -276,7 +281,6 @@ RunService.RenderStepped:Connect(function(dt)
                 local angle = timeTick * data.speed
                 local rotCF
                 
-                -- Кожна куля літає по своїй осі
                 if data.axis == 1 then
                     rotCF = CFrame.Angles(math.rad(20), angle, 0)
                 elseif data.axis == 2 then
@@ -285,17 +289,17 @@ RunService.RenderStepped:Connect(function(dt)
                     rotCF = CFrame.Angles(angle, math.rad(-60), 0)
                 end
                 
-                -- Позиція основної кулі
-                local currentCFrame = rotCF * CFrame.new(0, 0, -3.8)
+                -- Додано math.sin для красивого ефекту пульсації вверх-вниз
+                local bounceOffset = math.sin(timeTick * 4 + data.axis) * 1.2
+                local currentCFrame = rotCF * CFrame.new(0, bounceOffset, -4.2)
+                
                 sphere.CFrame = currentCFrame
                 
-                -- Оновлення історії позицій для шлейфу
                 table.insert(data.history, 1, currentCFrame)
                 if #data.history > TRAIL_LENGTH then
                     table.remove(data.history, #data.history)
                 end
                 
-                -- Розстановка шлейфу за кулею
                 for j, trailPart in ipairs(data.trails) do
                     if data.history[j] then
                         trailPart.CFrame = data.history[j]
@@ -355,14 +359,16 @@ RunService.RenderStepped:Connect(function(dt)
         end
     end
 
-    -- Наведення камери
+    -- Акуратне наведення (Smooth Aim)
     if bestTargetPart and bestTargetChar then
         if currentTarget ~= bestTargetChar then
             currentTarget = bestTargetChar
             createTargetAura(currentTarget)
         end
         
-        local currentSmoothness = fastAimEnabled and 0.55 or 0.22
+        -- Змінено коефіцієнти для максимальної акуратності: 
+        -- 0.08 - дуже плавно і непомітно, 0.25 - швидше, але без ривків
+        local currentSmoothness = fastAimEnabled and 0.25 or 0.08
         local offset = (bestTargetPart.Name == "HumanoidRootPart") and Vector3.new(0, 0.5, 0) or Vector3.new(0, 0, 0)
         local targetPos = bestTargetPart.Position + offset
         
@@ -373,4 +379,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("Soft Hub V7 loaded: Orbital Trails & Fixed UI Enabled!")
+print("Soft Hub V8 loaded: Premium UI & Ultra Smooth Aim")
