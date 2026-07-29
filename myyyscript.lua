@@ -1,10 +1,10 @@
 --[[
-    REWRITTEN ENGINE v5.0 (FULL FIX)
+    REWRITTEN ENGINE v6.0 (NO RMB NO BS)
+    - Аім працює завжди (без затискання ПКМ)
     - 3 режими Аімбота (Camera, Mouse, FOVOriented)
-    - Налаштування швидкості Аіма та Team Check
-    - ESP Silhouette (Highlight, який обтягує тіло) + Нікнейми
-    - Окремий Team Check для ESP
-    - Відкриття / Закриття: [RightShift]
+    - Налаштування швидкості та Team Check
+    - ESP Silhouette (Highlight) + Ніки
+    - Меню: [RightShift]
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -14,7 +14,6 @@ local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Очищення попередніх версій
 if CoreGui:FindFirstChild("UltimateFix_Engine") then
     CoreGui.UltimateFix_Engine:Destroy()
 end
@@ -31,13 +30,12 @@ local Settings = {
     AimMode = 1, -- 1 = Camera, 2 = Mouse, 3 = FOVOriented
     AimSpeed = 0.2,
     AimFOV = 120,
-    AimRMB = true,
     AimTeamCheck = true,
     
     -- ESP
     ESP = true,
-    ESPChams = true, -- Силует
-    ESPNames = true, -- Ніки
+    ESPChams = true,
+    ESPNames = true,
     ESPTeamCheck = true,
     
     -- Visuals
@@ -48,8 +46,8 @@ local AimModes = {"Camera", "Mouse", "FOVOriented"}
 
 -- ========== ГОЛОВНЕ МЕНЮ ==========
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 480, 0, 360)
-Main.Position = UDim2.new(0.5, -240, 0.5, -180)
+Main.Size = UDim2.new(0, 480, 0, 320)
+Main.Position = UDim2.new(0.5, -240, 0.5, -160)
 Main.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
 Main.BackgroundTransparency = 0.2
 Main.BorderSizePixel = 0
@@ -83,14 +81,14 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "ENGINE v5.0 // ULTIMATE"
+Title.Text = "ENGINE v6.0 // NO-RMB"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 13
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Вкладки (Навігація)
+-- Навігація
 local TabBar = Instance.new("Frame")
 TabBar.Size = UDim2.new(0, 110, 1, -48)
 TabBar.Position = UDim2.new(0, 8, 0, 42)
@@ -179,7 +177,7 @@ TabButtons["Aimbot"].BackgroundColor3 = Color3.fromRGB(255, 60, 90)
 TabButtons["Aimbot"].BackgroundTransparency = 0.2
 TabButtons["Aimbot"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- ========== КОМПОНЕНТИ UI ==========
+-- UI КОМПОНЕНТИ
 local function AddToggle(parent, text, default, callback)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, -6, 0, 34)
@@ -329,7 +327,6 @@ AddSlider(AimbotTab, "Aim FOV Radius", 30, 400, Settings.AimFOV, false, function
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
     FOVCircle.Position = UDim2.new(0.5, -v, 0.5, -v)
 end)
-AddToggle(AimbotTab, "Aim RMB Hold (Затискати ПКМ)", Settings.AimRMB, function(v) Settings.AimRMB = v end)
 AddToggle(AimbotTab, "Aim Team Check", Settings.AimTeamCheck, function(v) Settings.AimTeamCheck = v end)
 
 -- Вкладка ESP
@@ -338,7 +335,7 @@ AddToggle(ESPTab, "Player Silhouettes (Обтягування)", Settings.ESPCha
 AddToggle(ESPTab, "Player Names (Нікнейми)", Settings.ESPNames, function(v) Settings.ESPNames = v end)
 AddToggle(ESPTab, "ESP Team Check (Ігнор своїх)", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
 
--- Вкладка VISUALS (Поки що базові налаштування фов та заділ під майбутні візуали)
+-- Вкладка VISUALS
 AddToggle(VisualsTab, "Show FOV Circle", Settings.ShowFOV, function(v) 
     Settings.ShowFOV = v 
     FOVCircle.Visible = v 
@@ -362,15 +359,7 @@ FOVStroke.Thickness = 1
 FOVStroke.Transparency = 0.3
 FOVStroke.Parent = FOVCircle
 
--- ========== ЛОГІКА AIMBOT ==========
-local isRmbHold = false
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if not gpe and input.UserInputType == Enum.UserInputType.MouseButton2 then isRmbHold = true end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then isRmbHold = false end
-end)
-
+-- ========== ЛОГІКА AIMBOT (БЕЗ УМОВ) ==========
 local function GetTarget()
     local target = nil
     local minDist = Settings.AimFOV
@@ -400,29 +389,24 @@ end
 
 RunService.RenderStepped:Connect(function()
     if Settings.Aimbot then
-        if not Settings.AimRMB or isRmbHold then
-            local target = GetTarget()
-            if target then
-                if Settings.AimMode == 1 then
-                    -- Mode 1: Camera Lerp (Плавна камера)
-                    Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Settings.AimSpeed)
-                elseif Settings.AimMode == 2 then
-                    -- Mode 2: Mouse Movement (Наведення курсором)
-                    local screenPos = Camera:WorldToViewportPoint(target.Position)
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local moveX = (screenPos.X - mousePos.X) * Settings.AimSpeed
-                    local moveY = (screenPos.Y - mousePos.Y) * Settings.AimSpeed
-                    mousemoverel(moveX, moveY)
-                elseif Settings.AimMode == 3 then
-                    -- Mode 3: FOV Oriented (Різкий / Прицільний)
-                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-                end
+        local target = GetTarget()
+        if target then
+            if Settings.AimMode == 1 then
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Settings.AimSpeed)
+            elseif Settings.AimMode == 2 then
+                local screenPos = Camera:WorldToViewportPoint(target.Position)
+                local mousePos = UserInputService:GetMouseLocation()
+                local moveX = (screenPos.X - mousePos.X) * Settings.AimSpeed
+                local moveY = (screenPos.Y - mousePos.Y) * Settings.AimSpeed
+                mousemoverel(moveX, moveY)
+            elseif Settings.AimMode == 3 then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
             end
         end
     end
 end)
 
--- ========== ЛОГІКА ESP (HIGHLIGHT СИЛУЕТ + NICKNAMES) ==========
+-- ========== ЛОГІКА ESP ==========
 local ESPHolder = {}
 
 local function CreateESPForPlayer(player)
@@ -448,7 +432,6 @@ RunService.RenderStepped:Connect(function()
             local isTeam = Settings.ESPTeamCheck and player.Team ~= nil and player.Team == LocalPlayer.Team
 
             if Settings.ESP and not isTeam and char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                -- 1. Highlight (Силует обтягування)
                 local hl = char:FindFirstChild("PureChams")
                 if not hl then
                     hl = Instance.new("Highlight")
@@ -463,7 +446,6 @@ RunService.RenderStepped:Connect(function()
                 end
                 hl.Enabled = Settings.ESPChams
 
-                -- 2. Names
                 if Settings.ESPNames then
                     local headPos, onScreen = Camera:WorldToViewportPoint(char.Head.Position + Vector3.new(0, 1.5, 0))
                     if onScreen then
@@ -493,7 +475,7 @@ Players.PlayerRemoving:Connect(function(p)
     end
 end)
 
--- Відкриття/Закриття меню на RightShift
+-- RightShift закрити / відкрити
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightShift then
         Main.Visible = not Main.Visible
