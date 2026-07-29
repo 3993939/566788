@@ -1,5 +1,8 @@
 --[[
-    ВИПРАВЛЕНИЙ ТА ОПТИМІЗОВАНИЙ AIMBOT PRO v3
+    AIMBOT PRO v3 (UPDATED)
+    - Перемикання меню: RightShift або Клік на круглу іконку з черепом
+    - Аімбот: Наведення при затиснутій ПКМ (Right Mouse Button)
+    - Покращена плавність наведення
 ]]
 
 local Players = game:GetService("Players")
@@ -8,7 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ГОЛОВНЕ ВІКНО (Orion Library)
+-- ЗАВАНТАЖЕННЯ БІБЛІОТЕКИ ORION
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
 local Window = OrionLib:MakeWindow({
@@ -33,8 +36,57 @@ local Settings = {
     TeamCheck = false,
     WallCheck = true,
     AimPart = "Head",
-    ShowFOV = true
+    ShowFOV = true,
+    AimKey = Enum.UserInputType.MouseButton2, -- Аім на ПКМ
+    IsAiming = false
 }
+
+-- СТВОРЕННЯ КРУГЛОЇ ІКОНКИ З ЧЕРЕПОМ НА ЕКРАНІ
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AimbotToggleGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local SkullButton = Instance.new("ImageButton")
+SkullButton.Name = "SkullToggle"
+SkullButton.Size = UDim2.new(0, 50, 0, 50)
+SkullButton.Position = UDim2.new(0, 15, 0.5, -25)
+SkullButton.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+SkullButton.BackgroundTransparency = 0.2
+SkullButton.Image = "rbxassetid://10723380252" -- Іконка черепа
+SkullButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+SkullButton.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0) -- Робимо повністю круглою
+UICorner.Parent = SkullButton
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(255, 0, 0)
+UIStroke.Thickness = 2
+UIStroke.Parent = SkullButton
+
+-- ЛОГІКА ВІДКРИТТЯ/ЗАКРИТТЯ GUI
+local MenuOpen = true
+local function ToggleMenu()
+    MenuOpen = not MenuOpen
+    local mainFrame = game:GetService("CoreGui"):FindFirstChild("Orion")
+    if mainFrame then
+        mainFrame.Enabled = MenuOpen
+    end
+end
+
+-- Відкриття по кліку на іконку
+SkullButton.MouseButton1Click:Connect(function()
+    ToggleMenu()
+end)
+
+-- Відкриття по кнопці RightShift
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
+        ToggleMenu()
+    end
+end)
 
 -- МАЛЮВАННЯ FOV КОЛА (Drawing API)
 local FOVCircle = Drawing.new("Circle")
@@ -48,7 +100,7 @@ FOVCircle.Visible = Settings.ShowFOV
 
 -- ЕЛЕМЕНТИ УПРАВЛІННЯ GUI
 MainTab:AddToggle({
-    Name = "🟢 Увімкнути Аім",
+    Name = "🟢 Увімкнути Аім (Затисни ПКМ)",
     Default = Settings.Enabled,
     Callback = function(value)
         Settings.Enabled = value
@@ -65,8 +117,8 @@ MainTab:AddToggle({
 })
 
 MainTab:AddSlider({
-    Name = "🎯 Плавність (0 = миттєво)",
-    Min = 0,
+    Name = "🎯 Плавність (чим більше — тим плавніше)",
+    Min = 0.01,
     Max = 0.5,
     Default = Settings.Smoothness,
     Increment = 0.01,
@@ -115,6 +167,19 @@ MainTab:AddToggle({
         Settings.TeamCheck = value
     end
 })
+
+-- ЗЧИТУВАННЯ ЗАТИСКАННЯ ПКМ
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Settings.AimKey then
+        Settings.IsAiming = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Settings.AimKey then
+        Settings.IsAiming = false
+    end
+end)
 
 -- ПЕРЕВІРКА ВИДИМОСТІ (RAYCAST)
 local function IsVisible(targetPart, targetCharacter)
@@ -174,63 +239,22 @@ local function GetClosestTarget()
     return closestTarget
 end
 
--- ОСНОВНИЙ ЦИКЛ ОНОВЛЕННЯ
+-- ОСНОВНИЙ ЦИКЛ ОНОВЛЕННЯ ТА ПЛАВНОГО НАВЕДЕННЯ
 RunService.RenderStepped:Connect(function()
-    -- Оновлення позиції кола FOV у центрі екрана
     FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     
-    if not Settings.Enabled then return end
+    -- Працює тільки якщо функція увімкнена ТА затиснуто ПКМ
+    if not Settings.Enabled or not Settings.IsAiming then return end
 
     local targetPart = GetClosestTarget()
     
     if targetPart then
         local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
         
-        if Settings.Smoothness == 0 then
-            Camera.CFrame = targetCFrame
-        else
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
-        end
+        -- Плавне згладжування камери
+        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
     end
 end)
 
--- ТЕСТОВИЙ СПАВН NPC (ДЛЯ ОФЛАЙНУ)
-MainTab:AddButton({
-    Name = "🧟 Спавнити тестових NPC",
-    Callback = function()
-        for i = 1, 3 do
-            local model = Instance.new("Model")
-            model.Name = "Dummy_NPC_" .. i
-            
-            local humanoid = Instance.new("Humanoid", model)
-            
-            local root = Instance.new("Part")
-            root.Name = "HumanoidRootPart"
-            root.Size = Vector3.new(2, 2, 1)
-            root.Position = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart.Position + Vector3.new(math.random(-20, 20), 0, math.random(-20, 20))) or Vector3.new(0, 5, 0)
-            root.Anchored = true
-            root.Parent = model
-            
-            local head = Instance.new("Part")
-            head.Name = "Head"
-            head.Size = Vector3.new(1.2, 1.2, 1.2)
-            head.Position = root.Position + Vector3.new(0, 2.5, 0)
-            head.Anchored = true
-            head.Color = Color3.fromRGB(255, 200, 150)
-            head.Parent = model
-            
-            model.PrimaryPart = root
-            model.Parent = workspace
-        end
-        
-        OrionLib:MakeNotification({
-            Name = "Успішно",
-            Content = "Створено NPC для тестування",
-            Image = "rbxassetid://4483345998",
-            Time = 3
-        })
-    end
-})
-
 OrionLib:Init()
-print("✅ AIMBOT PRO v3 УСПІШНО ЗАВАНТАЖЕНО!")
+print("✅ AIMBOT PRO v3 ЗАВАНТАЖЕНО! Натисніть RightShift або Іконку для відкриття меню.")
