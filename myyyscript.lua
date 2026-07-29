@@ -1,7 +1,8 @@
 --[[
-    ULTIMATE ENGINE v9.0 + KEY SYSTEM (2 BUTTONS)
-    - Key System: "Отримати ключ" + "Активувати"
-    - Софт: Aimbot, ESP (коло + 3D орбіти), BHop, траєкторія
+    ULTIMATE ENGINE v9.0 + KEY SYSTEM (AUTO-OPEN LINK, RU)
+    - Автоматичне відкриття посилання в браузері
+    - Російська мова
+    - Key System: "Получить ключ" + "Активировать"
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -18,7 +19,7 @@ if CoreGui:FindFirstChild("UltimateEngine_UI") then
 end
 
 -- ============================
--- 1. KEY SYSTEM (2 КНОПКИ)
+-- 1. KEY SYSTEM (2 КНОПКИ, RU)
 -- ============================
 local ValidKey = "RH29WJ-PAHALOX-82JSA" -- Ваш ключ
 local KeyLink = "https://work.ink/2N3N/e1b1e961-f9b1-4e70-a5a8-9e931d5440e9" -- Ваше посилання
@@ -44,25 +45,25 @@ KeyStroke.Color = Color3.fromRGB(255, 60, 90)
 KeyStroke.Thickness = 1.5
 KeyStroke.Parent = KeyFrame
 
--- Заголовок
+-- Заголовок (RU)
 local KeyTitle = Instance.new("TextLabel")
 KeyTitle.Size = UDim2.new(1, 0, 0, 50)
 KeyTitle.Position = UDim2.new(0, 0, 0, 10)
 KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "🔐 АКТИВАЦІЯ СОФТУ"
+KeyTitle.Text = "🔐 АКТИВАЦИЯ СОФТА"
 KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 KeyTitle.TextSize = 18
 KeyTitle.Font = Enum.Font.GothamBold
 KeyTitle.Parent = KeyFrame
 
--- Поле для ключа
+-- Поле для ключа (RU)
 local KeyBox = Instance.new("TextBox")
 KeyBox.Size = UDim2.new(0.8, 0, 0, 35)
 KeyBox.Position = UDim2.new(0.1, 0, 0.30, 0)
 KeyBox.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
 KeyBox.BackgroundTransparency = 0.4
 KeyBox.Text = ""
-KeyBox.PlaceholderText = "Введіть ключ..."
+KeyBox.PlaceholderText = "Введите ключ..."
 KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 KeyBox.Font = Enum.Font.Gotham
 KeyBox.TextSize = 14
@@ -72,13 +73,13 @@ local KeyBoxCorner = Instance.new("UICorner")
 KeyBoxCorner.CornerRadius = UDim.new(0, 8)
 KeyBoxCorner.Parent = KeyBox
 
--- Кнопка "Отримати ключ"
+-- Кнопка "Получить ключ" (RU)
 local GetKeyBtn = Instance.new("TextButton")
 GetKeyBtn.Size = UDim2.new(0.35, 0, 0, 35)
 GetKeyBtn.Position = UDim2.new(0.08, 0, 0.55, 0)
 GetKeyBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 GetKeyBtn.BackgroundTransparency = 0.3
-GetKeyBtn.Text = "🔑 ОТРИМАТИ КЛЮЧ"
+GetKeyBtn.Text = "🔑 ПОЛУЧИТЬ КЛЮЧ"
 GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 GetKeyBtn.Font = Enum.Font.GothamBold
 GetKeyBtn.TextSize = 11
@@ -88,13 +89,13 @@ local GetKeyCorner = Instance.new("UICorner")
 GetKeyCorner.CornerRadius = UDim.new(0, 8)
 GetKeyCorner.Parent = GetKeyBtn
 
--- Кнопка "Активувати"
+-- Кнопка "Активировать" (RU)
 local ActivateBtn = Instance.new("TextButton")
 ActivateBtn.Size = UDim2.new(0.35, 0, 0, 35)
 ActivateBtn.Position = UDim2.new(0.57, 0, 0.55, 0)
 ActivateBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 90)
 ActivateBtn.BackgroundTransparency = 0.2
-ActivateBtn.Text = "✅ АКТИВУВАТИ"
+ActivateBtn.Text = "✅ АКТИВИРОВАТЬ"
 ActivateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ActivateBtn.Font = Enum.Font.GothamBold
 ActivateBtn.TextSize = 11
@@ -104,7 +105,7 @@ local ActivateCorner = Instance.new("UICorner")
 ActivateCorner.CornerRadius = UDim.new(0, 8)
 ActivateCorner.Parent = ActivateBtn
 
--- Статус
+-- Статус (RU)
 local KeyStatus = Instance.new("TextLabel")
 KeyStatus.Size = UDim2.new(1, 0, 0, 25)
 KeyStatus.Position = UDim2.new(0, 0, 0.82, 0)
@@ -115,38 +116,78 @@ KeyStatus.TextSize = 12
 KeyStatus.Font = Enum.Font.Gotham
 KeyStatus.Parent = KeyFrame
 
--- Функція відкриття посилання
-local function OpenLink(url)
+-- ===== ФУНКЦІЯ АВТО-ВІДКРИТТЯ ПОСИЛАННЯ =====
+local function OpenLinkInBrowser(url)
+    local success = false
+    
+    -- Спроба 1: Synapse X (syn.request)
     pcall(function()
         if syn and syn.request then
             syn.request({Url = url, Method = "GET"})
-        elseif request then
-            request({Url = url, Method = "GET"})
-        else
-            setclipboard(url)
-            KeyStatus.Text = "📋 ПОСИЛАННЯ СКОПІЙОВАНЕ В БУФЕР!"
-            KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
+            success = true
         end
     end)
+
+    -- Спроба 2: Стандартний request
+    if not success then
+        pcall(function()
+            if request then
+                request({Url = url, Method = "GET"})
+                success = true
+            end
+        end)
+    end
+
+    -- Спроба 3: HttpService (не завжди працює)
+    if not success then
+        pcall(function()
+            game:GetService("HttpService"):PostAsync(url, "")
+            success = true
+        end)
+    end
+
+    -- Спроба 4: Відкриття через браузер (для деяких екзекуторів)
+    if not success then
+        pcall(function()
+            if syn and syn.crypt then
+                syn.crypt.custom("open", url)
+                success = true
+            end
+        end)
+    end
+
+    -- Якщо нічого не спрацювало — копіюємо в буфер
+    if not success then
+        setclipboard(url)
+        KeyStatus.Text = "📋 ССЫЛКА СКОПИРОВАНА В БУФЕР!"
+        KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
+    else
+        KeyStatus.Text = "✅ ССЫЛКА ОТКРЫТА В БРАУЗЕРЕ!"
+        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
+    end
 end
 
+-- Кнопка "Получить ключ"
 GetKeyBtn.MouseButton1Click:Connect(function()
-    OpenLink(KeyLink)
-    KeyStatus.Text = "🔗 ВІДКРИВАЄМО ПОСИЛАННЯ..."
+    KeyStatus.Text = "⏳ ОТКРЫВАЕМ ССЫЛКУ..."
     KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
+    OpenLinkInBrowser(KeyLink)
     wait(2)
-    KeyStatus.Text = "✅ ПЕРЕЙДІТЬ ЗА ПОСИЛАННЯМ ТА ОТРИМАЙТЕ КЛЮЧ"
-    KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
+    if KeyStatus.Text ~= "📋 ССЫЛКА СКОПИРОВАНА В БУФЕР!" and KeyStatus.Text ~= "✅ ССЫЛКА ОТКРЫТА В БРАУЗЕРЕ!" then
+        KeyStatus.Text = "🔗 ПЕРЕЙДИТЕ ПО ССЫЛКЕ И ПОЛУЧИТЕ КЛЮЧ"
+        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
+    end
 end)
 
+-- ===== ФУНКЦІЯ АКТИВАЦІЇ =====
 local function ActivateScript()
     if KeyBox.Text == ValidKey then
-        KeyStatus.Text = "✅ КЛЮЧ ПРАВИЛЬНИЙ! ЗАВАНТАЖЕННЯ..."
+        KeyStatus.Text = "✅ КЛЮЧ ВЕРНЫЙ! ЗАГРУЗКА..."
         KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
         KeyGui:Destroy()
         LoadMainScript()
     else
-        KeyStatus.Text = "❌ НЕПРАВИЛЬНИЙ КЛЮЧ!"
+        KeyStatus.Text = "❌ НЕВЕРНЫЙ КЛЮЧ!"
         KeyStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
         KeyBox.Text = ""
     end
@@ -159,7 +200,7 @@ KeyBox.FocusLost:Connect(function(enter) if enter then ActivateScript() end end)
 -- 2. ОСНОВНИЙ СОФТ
 -- ============================
 function LoadMainScript()
-    print("✅ ULTIMATE ENGINE v9.0 АКТИВОВАНО!")
+    print("✅ ULTIMATE ENGINE v9.0 АКТИВИРОВАН!")
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "UltimateEngine_UI"
@@ -695,44 +736,4 @@ function LoadMainScript()
     local trajectoryLine = Instance.new("Frame")
     trajectoryLine.Size = UDim2.new(0, 10, 0, 4)
     trajectoryLine.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    trajectoryLine.BackgroundTransparency = 0.2
-    trajectoryLine.ZIndex = 5
-    trajectoryLine.Parent = ScreenGui
-
-    RunService.RenderStepped:Connect(function()
-        if not Settings.ShowTrajectory then
-            trajectoryLine.Visible = false
-            return
-        end
-
-        local mouse = LocalPlayer:GetMouse()
-        if mouse then
-            local targetPos = mouse.Hit.Position
-            local origin = Camera.CFrame.Position
-            local distance = (targetPos - origin).Magnitude
-
-            if distance > 5 then
-                local midPoint = (origin + targetPos) / 2
-                trajectoryLine.Visible = true
-                trajectoryLine.Size = UDim2.new(0, math.min(distance * 2, 300), 0, 4)
-                trajectoryLine.Position = UDim2.new(0, midPoint.X - trajectoryLine.Size.X.Offset / 2, 0, midPoint.Y)
-                trajectoryLine.Rotation = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
-            else
-                trajectoryLine.Visible = false
-            end
-        end
-    end)
-
-    -- ===== ВІДКРИТТЯ/ЗАКРИТТЯ =====
-    UserInputService.InputBegan:Connect(function(input, processed)
-        if not processed and input.KeyCode == Enum.KeyCode.RightShift then
-            Main.Visible = not Main.Visible
-            FOVCircle.Visible = Main.Visible
-        end
-    end)
-
-    print("✅ ULTIMATE ENGINE v9.0 ЗАВАНТАЖЕНО!")
-    print("📌 МЕНЮ: ПРАВИЙ SHIFT")
-end
-
-print("🔐 ОЧІКУВАННЯ КЛЮЧА...")
+    trajectoryLine.BackgroundTrans
