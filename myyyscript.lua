@@ -1,8 +1,9 @@
 --[[
-    GLASS INJECTOR v2.0 (BULLET TRAJECTORY + TARGET ESP)
+    GLASS INJECTOR v2.1 (FIXED ESP + 3D ORBIT TARGET)
     - Білий скляний GUI
     - Аім: сила 1-10, вибір частини тіла, чек стін/команди
-    - ESP: обводка колом + три сфери, що обертаються (Target ESP)
+    - ESP: обводка колом (виправлено)
+    - Target ESP: 3 сфери літають навколо гравця (зверху-вниз, збоку)
     - Visuals: траєкторія куль (товсті лінії)
 ]]
 
@@ -26,22 +27,17 @@ ScreenGui.Parent = CoreGui
 
 -- ========== НАЛАШТУВАННЯ ==========
 local Settings = {
-    -- Aimbot
     Aimbot = true,
     AimStrength = 5,
     AimPart = "Head",
     WallCheck = true,
     TeamCheck = false,
-    -- ESP
     ESP = true,
     ESPOutline = true,
     ESPTeamCheck = false,
     TargetESP = true,
-    -- Visuals
     ShowTrajectory = true,
 }
-
-local AimParts = {"Head", "Torso"}
 
 -- ========== FOV КОЛО ==========
 local FOVCircle = Instance.new("Frame")
@@ -62,7 +58,7 @@ FOVStroke.Thickness = 1.5
 FOVStroke.Transparency = 0.4
 FOVStroke.Parent = FOVCircle
 
--- ========== ГОЛОВНЕ ВІКНО (БІЛЕ СКЛО) ==========
+-- ========== ГОЛОВНЕ ВІКНО ==========
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 520, 0, 420)
 Main.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -83,7 +79,7 @@ MainStroke.Thickness = 1.5
 MainStroke.Transparency = 0.5
 MainStroke.Parent = Main
 
--- ========== ВКЛАДКИ (ЗВЕРХУ) ==========
+-- ========== ВКЛАДКИ ==========
 local TabBar = Instance.new("Frame")
 TabBar.Size = UDim2.new(1, -20, 0, 40)
 TabBar.Position = UDim2.new(0, 10, 0, 8)
@@ -346,20 +342,18 @@ local function AddPartSelector(parent, yPos)
     end)
 end
 
--- ========== ЗАПОВНЕННЯ ВКЛАДКИ AIMBOT ==========
+-- ========== ЗАПОВНЕННЯ ВКЛАДОК ==========
 AddToggle(AimbotTab, 0.02, "Enable Aimbot", Settings.Aimbot, function(v) Settings.Aimbot = v end)
 AddStrengthSlider(AimbotTab, 0.10)
 AddPartSelector(AimbotTab, 0.28)
 AddToggle(AimbotTab, 0.40, "Wall Check", Settings.WallCheck, function(v) Settings.WallCheck = v end)
 AddToggle(AimbotTab, 0.50, "Team Check", Settings.TeamCheck, function(v) Settings.TeamCheck = v end)
 
--- ========== ЗАПОВНЕННЯ ВКЛАДКИ ESP ==========
 AddToggle(ESPTab, 0.02, "Enable ESP", Settings.ESP, function(v) Settings.ESP = v end)
 AddToggle(ESPTab, 0.12, "Outline ESP", Settings.ESPOutline, function(v) Settings.ESPOutline = v end)
 AddToggle(ESPTab, 0.22, "Team Check", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
 AddToggle(ESPTab, 0.32, "Target ESP (3 Orbs)", Settings.TargetESP, function(v) Settings.TargetESP = v end)
 
--- ========== ЗАПОВНЕННЯ ВКЛАДКИ VISUALS ==========
 AddToggle(VisualsTab, 0.02, "Show Bullet Trajectory", Settings.ShowTrajectory, function(v) Settings.ShowTrajectory = v end)
 
 -- ========== ЛОГІКА АІМБОТА ==========
@@ -422,12 +416,13 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== ESP ОБВОДКА (КОЛО) + TARGET ESP (3 СФЕРИ) ==========
+-- ========== ESP (ВИПРАВЛЕНО) ==========
 local ESPObjects = {}
 
 local function CreateESP(player)
     if ESPObjects[player] then return end
 
+    -- Обводка (коло)
     local outline = Instance.new("Frame")
     outline.Size = UDim2.new(0, 60, 0, 60)
     outline.BackgroundTransparency = 1
@@ -443,6 +438,7 @@ local function CreateESP(player)
     circle.ImageTransparency = 0.3
     circle.Parent = outline
 
+    -- Ім'я гравця
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 16)
     nameLabel.Position = UDim2.new(0, 0, 1, 2)
@@ -453,11 +449,17 @@ local function CreateESP(player)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.Parent = outline
 
-    -- 3 сфери для Target ESP
+    -- 3 сфери для Target ESP (з різними орбітами)
     local orbs = {}
-    for i = 1, 3 do
+    local orbConfigs = {
+        {radius = 50, speed = 1.2, angleOffset = 0, vertical = true},   -- зверху-вниз
+        {radius = 50, speed = 1.0, angleOffset = 120, vertical = false}, -- збоку (горизонтально)
+        {radius = 50, speed = 0.8, angleOffset = 240, vertical = true}   -- зверху-вниз зі зсувом
+    }
+
+    for i, config in ipairs(orbConfigs) do
         local orb = Instance.new("Frame")
-        orb.Size = UDim2.new(0, 12, 0, 12)
+        orb.Size = UDim2.new(0, 14, 0, 14)
         orb.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
         orb.BackgroundTransparency = 0.2
         orb.Visible = false
@@ -468,7 +470,7 @@ local function CreateESP(player)
         orbCorner.CornerRadius = UDim.new(1, 0)
         orbCorner.Parent = orb
 
-        orbs[i] = orb
+        orbs[i] = {Frame = orb, Config = config}
     end
 
     ESPObjects[player] = {Outline = outline, Name = nameLabel, Orbs = orbs}
@@ -490,33 +492,39 @@ local function UpdateESP()
                     data.Outline.Position = UDim2.new(0, pos.X - 30, 0, pos.Y - 30)
                     data.Name.Visible = Settings.ESPOutline
 
-                    -- Target ESP: 3 сфери, що обертаються
+                    -- Target ESP: 3 сфери з різними 3D-орбітами
                     if Settings.TargetESP then
-                        local radius = 40
-                        local angles = {0, 120, 240}
-                        for i, orb in ipairs(data.Orbs) do
-                            local angle = math.rad(angles[i] + (time * 60) % 360)
-                            local x = pos.X + math.cos(angle) * radius
-                            local z = pos.Y + math.sin(angle) * radius * 0.5
-                            orb.Visible = true
-                            orb.Position = UDim2.new(0, x - 6, 0, z - 6)
+                        for i, orbData in ipairs(data.Orbs) do
+                            local config = orbData.Config
+                            local angle = math.rad((time * config.speed * 60 + config.angleOffset) % 360)
+                            local x = pos.X + math.cos(angle) * config.radius
+                            local z = pos.Y + math.sin(angle) * config.radius * 0.5
+
+                            -- Вертикальний рух (зверху-вниз)
+                            if config.vertical then
+                                local yOffset = math.sin(angle * 0.7) * 30
+                                z = z + yOffset
+                            end
+
+                            orbData.Frame.Visible = true
+                            orbData.Frame.Position = UDim2.new(0, x - 7, 0, z - 7)
                         end
                     else
-                        for _, orb in ipairs(data.Orbs) do
-                            orb.Visible = false
+                        for _, orbData in ipairs(data.Orbs) do
+                            orbData.Frame.Visible = false
                         end
                     end
                 else
                     data.Outline.Visible = false
-                    for _, orb in ipairs(data.Orbs) do
-                        orb.Visible = false
+                    for _, orbData in ipairs(data.Orbs) do
+                        orbData.Frame.Visible = false
                     end
                 end
             end
         else
             data.Outline.Visible = false
-            for _, orb in ipairs(data.Orbs) do
-                orb.Visible = false
+            for _, orbData in ipairs(data.Orbs) do
+                orbData.Frame.Visible = false
             end
         end
     end
@@ -531,8 +539,8 @@ end)
 Players.PlayerRemoving:Connect(function(player)
     if ESPObjects[player] then
         ESPObjects[player].Outline:Destroy()
-        for _, orb in ipairs(ESPObjects[player].Orbs) do
-            orb:Destroy()
+        for _, orbData in ipairs(ESPObjects[player].Orbs) do
+            orbData.Frame:Destroy()
         end
         ESPObjects[player] = nil
     end
@@ -549,14 +557,14 @@ RunService.RenderStepped:Connect(function()
     else
         for _, data in pairs(ESPObjects) do
             data.Outline.Visible = false
-            for _, orb in ipairs(data.Orbs) do
-                orb.Visible = false
+            for _, orbData in ipairs(data.Orbs) do
+                orbData.Frame.Visible = false
             end
         end
     end
 end)
 
--- ========== ВІЗУАЛ ТРАЄКТОРІЇ КУЛЬ (ТОВСТА ЛІНІЯ) ==========
+-- ========== ТРАЄКТОРІЯ КУЛЬ ==========
 local TrajectoryLines = {}
 
 local function ClearTrajectories()
@@ -605,7 +613,7 @@ end
 
 ShowBulletTrajectory()
 
--- ========== ВІДКРИТТЯ/ЗАКРИТТЯ МЕНЮ ==========
+-- ========== ВІДКРИТТЯ/ЗАКРИТТЯ ==========
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightShift then
         Main.Visible = not Main.Visible
@@ -613,5 +621,5 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
-print("✅ GLASS INJECTOR v2.0 ЗАВАНТАЖЕНО!")
-print("📌 МЕНЮ: ПРАВИЙ SHIFT | TARGET ESP: 3 СФЕРИ НАВКОЛО ГРАВЦЯ")
+print("✅ GLASS INJECTOR v2.1 ЗАВАНТАЖЕНО!")
+print("📌 МЕНЮ: ПРАВИЙ SHIFT | TARGET ESP: 3D ОРБІТИ")
