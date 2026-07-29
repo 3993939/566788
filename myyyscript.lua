@@ -1,8 +1,8 @@
 --[[
-    ЧИСТИЙ РАЗШИРЕНИЙ GUI З БІЧНОЮ ПАНЕЛЛЮ
-    - Відкриття / Закриття: [RightShift]
-    - Вкладки: Aimbot | ESP | Visuals
-    - Активація аіму: Затискання ПКМ
+    ВИПРАВЛЕНИЙ GUI З БІЧНОЮ ПАНЕЛЛЮ
+    - Відкриття / Закриття меню: [RightShift]
+    - Аімбот працює ПОСТІЙНО (без затискання ПКМ)
+    - Виправлено позиціонування ESP та видимість FOV
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -32,18 +32,15 @@ local Settings = {
     TeamCheck = false,
     TargetMode = 1, -- 1 = Head, 2 = Torso, 3 = Random
     Randomization = 0.05,
-    IsAiming = false,
     -- ESP
-    ESPEnabled = false,
+    ESPEnabled = true,
     ESPBox = true,
     ESPName = true,
     ESPHealth = true,
-    ESPDistance = true,
     ESPColor = Color3.fromRGB(255, 50, 80),
     -- Visuals
     FOVCircleEnabled = true,
     Crosshair = true,
-    HitEffect = false,
 }
 
 -- ========== ГОЛОВНЕ ВІКНО ==========
@@ -352,7 +349,7 @@ ModeBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ========== ЕЛЕМЕНТИ ВКЛАДКИ ESP ==========
-CreateToggle(ESPTab, 1, false, "ESP Enabled", function(v) Settings.ESPEnabled = v end)
+CreateToggle(ESPTab, 1, true, "ESP Enabled", function(v) Settings.ESPEnabled = v end)
 CreateToggle(ESPTab, 2, true, "Box ESP", function(v) Settings.ESPBox = v end)
 CreateToggle(ESPTab, 3, true, "Name ESP", function(v) Settings.ESPName = v end)
 CreateToggle(ESPTab, 4, true, "Health Bar", function(v) Settings.ESPHealth = v end)
@@ -367,12 +364,13 @@ CreateToggle(VisualsTab, 2, true, "Crosshair", function(v)
     Crosshair.Visible = v
 end)
 
--- ========== FOV CIRCLE ==========
+-- ========== ВИПРАВЛЕНО: FOV CIRCLE (ВИДИМІСТЬ) ==========
 local FOVCircle = Instance.new("Frame")
 FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
 FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
 FOVCircle.BackgroundTransparency = 1
 FOVCircle.Visible = true
+FOVCircle.ZIndex = 10 -- Піднято пріоритет відображення
 FOVCircle.Parent = ScreenGui
 
 local circle = Instance.new("ImageLabel")
@@ -380,7 +378,8 @@ circle.Image = "rbxassetid://16036349377"
 circle.Size = UDim2.new(1, 0, 1, 0)
 circle.BackgroundTransparency = 1
 circle.ImageColor3 = Color3.fromRGB(255, 80, 120)
-circle.ImageTransparency = 0.85
+circle.ImageTransparency = 0.5 -- Зроблено більш контрастним
+circle.ZIndex = 10
 circle.Parent = FOVCircle
 
 -- ========== CROSSHAIR ==========
@@ -389,6 +388,7 @@ Crosshair.Size = UDim2.new(0, 20, 0, 20)
 Crosshair.Position = UDim2.new(0.5, -10, 0.5, -10)
 Crosshair.BackgroundTransparency = 1
 Crosshair.Visible = true
+Crosshair.ZIndex = 10
 Crosshair.Parent = ScreenGui
 
 local function CreateCrossLine(size, pos)
@@ -398,6 +398,7 @@ local function CreateCrossLine(size, pos)
     line.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     line.BackgroundTransparency = 0.2
     line.BorderSizePixel = 0
+    line.ZIndex = 10
     line.Parent = Crosshair
 end
 
@@ -405,19 +406,6 @@ CreateCrossLine(UDim2.new(0, 2, 0, 8), UDim2.new(0.5, -1, 0, 0))
 CreateCrossLine(UDim2.new(0, 2, 0, 8), UDim2.new(0.5, -1, 1, -8))
 CreateCrossLine(UDim2.new(0, 8, 0, 2), UDim2.new(0, 0, 0.5, -1))
 CreateCrossLine(UDim2.new(0, 8, 0, 2), UDim2.new(1, -8, 0.5, -1))
-
--- ========== ЛОГІКА ПКМ ==========
-UserInputService.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        Settings.IsAiming = true
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        Settings.IsAiming = false
-    end
-end)
 
 -- ========== AIMBOT ЛОГІКА ==========
 local function GetAimPart(character)
@@ -476,8 +464,9 @@ local function GetClosestTarget()
     return closestTarget
 end
 
+-- ВІДПОВІДНО ДО ВИМОГИ: Працює ЗАВЖДИ (без затискання ПКМ)
 RunService.RenderStepped:Connect(function()
-    if not Settings.Enabled or not Settings.IsAiming then return end
+    if not Settings.Enabled then return end
     local targetPart = GetClosestTarget()
     if targetPart then
         local targetPos = targetPart.Position
@@ -492,6 +481,98 @@ RunService.RenderStepped:Connect(function()
         local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPos)
         local alpha = Settings.Smoothness == 0 and 1 or math.clamp(Settings.Smoothness, 0.01, 1)
         Camera.CFrame = alpha >= 1 and targetCFrame or Camera.CFrame:Lerp(targetCFrame, alpha)
+    end
+end)
+
+-- ========== ВИПРАВЛЕНО: ТОЧНЕ ПОЗИЦІОНУВАННЯ ESP ==========
+local ESPObjects = {}
+
+local function CreateESP(player)
+    if ESPObjects[player] then return end
+    
+    local esp = {}
+    
+    local box = Instance.new("Frame")
+    box.Size = UDim2.new(0, 40, 0, 60)
+    box.BackgroundTransparency = 0.8
+    box.BackgroundColor3 = Settings.ESPColor
+    box.BorderSizePixel = 1
+    box.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    box.Parent = ScreenGui
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 14)
+    nameLabel.Position = UDim2.new(0, 0, 0, -16)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextSize = 11
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = box
+    
+    local healthBar = Instance.new("Frame")
+    healthBar.Size = UDim2.new(0, 3, 1, 0)
+    healthBar.Position = UDim2.new(0, -6, 0, 0)
+    healthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthBar.BorderSizePixel = 0
+    healthBar.Parent = box
+    
+    esp.Box = box
+    esp.NameLabel = nameLabel
+    esp.HealthBar = healthBar
+    ESPObjects[player] = esp
+end
+
+local function UpdateESP()
+    for player, esp in pairs(ESPObjects) do
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+            local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+            if root then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                if onScreen then
+                    -- Чітка центровка рамки по поверхні екрана
+                    esp.Box.Visible = Settings.ESPBox
+                    esp.Box.Position = UDim2.new(0, screenPos.X - 20, 0, screenPos.Y - 30)
+                    
+                    esp.NameLabel.Visible = Settings.ESPName
+                    esp.HealthBar.Visible = Settings.ESPHealth
+                    
+                    local health = char.Humanoid.Health / char.Humanoid.MaxHealth
+                    esp.HealthBar.Size = UDim2.new(0, 3, health, 0)
+                    esp.HealthBar.Position = UDim2.new(0, -6, 1 - health, 0)
+                    esp.HealthBar.BackgroundColor3 = Color3.fromRGB(255 * (1 - health), 255 * health, 0)
+                else
+                    esp.Box.Visible = false
+                end
+            end
+        else
+            esp.Box.Visible = false
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if Settings.ESPEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if not ESPObjects[player] then
+                    CreateESP(player)
+                end
+            end
+        end
+        UpdateESP()
+    else
+        for _, esp in pairs(ESPObjects) do
+            esp.Box.Visible = false
+        end
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if ESPObjects[player] then
+        ESPObjects[player].Box:Destroy()
+        ESPObjects[player] = nil
     end
 end)
 
