@@ -1,9 +1,8 @@
 --[[
-    REAL INJECTOR // GLASS UI v1.0
-    - Білий скляний стиль
-    - Вкладки зверху: Aimbot | ESP | Visuals
+    GLASS INJECTOR v2.0 (BULLET TRAJECTORY + TARGET ESP)
+    - Білий скляний GUI
     - Аім: сила 1-10, вибір частини тіла, чек стін/команди
-    - ESP: обводка навколо гравця (коло)
+    - ESP: обводка колом + три сфери, що обертаються (Target ESP)
     - Visuals: траєкторія куль (товсті лінії)
 ]]
 
@@ -29,14 +28,15 @@ ScreenGui.Parent = CoreGui
 local Settings = {
     -- Aimbot
     Aimbot = true,
-    AimStrength = 5, -- 1-10 (1 = сильне прилипання, 10 = легка допомога)
-    AimPart = "Head", -- Head / Torso
+    AimStrength = 5,
+    AimPart = "Head",
     WallCheck = true,
     TeamCheck = false,
     -- ESP
     ESP = true,
     ESPOutline = true,
     ESPTeamCheck = false,
+    TargetESP = true,
     -- Visuals
     ShowTrajectory = true,
 }
@@ -64,8 +64,8 @@ FOVStroke.Parent = FOVCircle
 
 -- ========== ГОЛОВНЕ ВІКНО (БІЛЕ СКЛО) ==========
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 520, 0, 400)
-Main.Position = UDim2.new(0.5, -260, 0.5, -200)
+Main.Size = UDim2.new(0, 520, 0, 420)
+Main.Position = UDim2.new(0.5, -260, 0.5, -210)
 Main.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 Main.BackgroundTransparency = 0.15
 Main.BorderSizePixel = 0
@@ -357,6 +357,7 @@ AddToggle(AimbotTab, 0.50, "Team Check", Settings.TeamCheck, function(v) Setting
 AddToggle(ESPTab, 0.02, "Enable ESP", Settings.ESP, function(v) Settings.ESP = v end)
 AddToggle(ESPTab, 0.12, "Outline ESP", Settings.ESPOutline, function(v) Settings.ESPOutline = v end)
 AddToggle(ESPTab, 0.22, "Team Check", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
+AddToggle(ESPTab, 0.32, "Target ESP (3 Orbs)", Settings.TargetESP, function(v) Settings.TargetESP = v end)
 
 -- ========== ЗАПОВНЕННЯ ВКЛАДКИ VISUALS ==========
 AddToggle(VisualsTab, 0.02, "Show Bullet Trajectory", Settings.ShowTrajectory, function(v) Settings.ShowTrajectory = v end)
@@ -414,7 +415,6 @@ RunService.RenderStepped:Connect(function()
 
     local target = GetClosestTarget()
     if target then
-        -- Сила прилипання (1 = максимальне, 10 = мінімальне)
         local strength = 1 - ((Settings.AimStrength - 1) / 9)
         local alpha = math.clamp(strength * 0.5, 0.05, 0.5)
         local targetCF = CFrame.new(Camera.CFrame.Position, target.Position)
@@ -422,7 +422,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== ESP ОБВОДКА (КОЛО НАВКОЛО ГРАВЦЯ) ==========
+-- ========== ESP ОБВОДКА (КОЛО) + TARGET ESP (3 СФЕРИ) ==========
 local ESPObjects = {}
 
 local function CreateESP(player)
@@ -435,7 +435,6 @@ local function CreateESP(player)
     outline.ZIndex = 3
     outline.Parent = ScreenGui
 
-    -- Коло (обводка)
     local circle = Instance.new("ImageLabel")
     circle.Image = "rbxassetid://16036349377"
     circle.Size = UDim2.new(1, 0, 1, 0)
@@ -444,7 +443,6 @@ local function CreateESP(player)
     circle.ImageTransparency = 0.3
     circle.Parent = outline
 
-    -- Ім'я
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 16)
     nameLabel.Position = UDim2.new(0, 0, 1, 2)
@@ -455,10 +453,30 @@ local function CreateESP(player)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.Parent = outline
 
-    ESPObjects[player] = {Outline = outline, Name = nameLabel}
+    -- 3 сфери для Target ESP
+    local orbs = {}
+    for i = 1, 3 do
+        local orb = Instance.new("Frame")
+        orb.Size = UDim2.new(0, 12, 0, 12)
+        orb.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        orb.BackgroundTransparency = 0.2
+        orb.Visible = false
+        orb.ZIndex = 4
+        orb.Parent = ScreenGui
+
+        local orbCorner = Instance.new("UICorner")
+        orbCorner.CornerRadius = UDim.new(1, 0)
+        orbCorner.Parent = orb
+
+        orbs[i] = orb
+    end
+
+    ESPObjects[player] = {Outline = outline, Name = nameLabel, Orbs = orbs}
 end
 
 local function UpdateESP()
+    local time = tick()
+
     for player, data in pairs(ESPObjects) do
         local char = player.Character
         local isTeam = Settings.ESPTeamCheck and player.Team == LocalPlayer.Team
@@ -471,12 +489,35 @@ local function UpdateESP()
                     data.Outline.Visible = true
                     data.Outline.Position = UDim2.new(0, pos.X - 30, 0, pos.Y - 30)
                     data.Name.Visible = Settings.ESPOutline
+
+                    -- Target ESP: 3 сфери, що обертаються
+                    if Settings.TargetESP then
+                        local radius = 40
+                        local angles = {0, 120, 240}
+                        for i, orb in ipairs(data.Orbs) do
+                            local angle = math.rad(angles[i] + (time * 60) % 360)
+                            local x = pos.X + math.cos(angle) * radius
+                            local z = pos.Y + math.sin(angle) * radius * 0.5
+                            orb.Visible = true
+                            orb.Position = UDim2.new(0, x - 6, 0, z - 6)
+                        end
+                    else
+                        for _, orb in ipairs(data.Orbs) do
+                            orb.Visible = false
+                        end
+                    end
                 else
                     data.Outline.Visible = false
+                    for _, orb in ipairs(data.Orbs) do
+                        orb.Visible = false
+                    end
                 end
             end
         else
             data.Outline.Visible = false
+            for _, orb in ipairs(data.Orbs) do
+                orb.Visible = false
+            end
         end
     end
 end
@@ -490,6 +531,9 @@ end)
 Players.PlayerRemoving:Connect(function(player)
     if ESPObjects[player] then
         ESPObjects[player].Outline:Destroy()
+        for _, orb in ipairs(ESPObjects[player].Orbs) do
+            orb:Destroy()
+        end
         ESPObjects[player] = nil
     end
 end)
@@ -505,11 +549,14 @@ RunService.RenderStepped:Connect(function()
     else
         for _, data in pairs(ESPObjects) do
             data.Outline.Visible = false
+            for _, orb in ipairs(data.Orbs) do
+                orb.Visible = false
+            end
         end
     end
 end)
 
--- ========== ВІЗУАЛ ТРАЄКТОРІЇ КУЛЬ ==========
+-- ========== ВІЗУАЛ ТРАЄКТОРІЇ КУЛЬ (ТОВСТА ЛІНІЯ) ==========
 local TrajectoryLines = {}
 
 local function ClearTrajectories()
@@ -522,21 +569,15 @@ end
 local function ShowBulletTrajectory()
     ClearTrajectories()
 
-    -- Відстежуємо постріли гравця
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if not playerGui then return end
-
-    -- Створюємо лінію для візуалізації
     local line = Instance.new("Frame")
-    line.Size = UDim2.new(0, 10, 0, 2)
+    line.Size = UDim2.new(0, 10, 0, 4)
     line.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    line.BackgroundTransparency = 0.3
+    line.BackgroundTransparency = 0.2
     line.ZIndex = 5
     line.Parent = ScreenGui
 
     table.insert(TrajectoryLines, line)
 
-    -- Оновлюємо позицію лінії (симуляція траєкторії)
     RunService.RenderStepped:Connect(function()
         if not Settings.ShowTrajectory then
             line.Visible = false
@@ -547,16 +588,17 @@ local function ShowBulletTrajectory()
         if mouse then
             local targetPos = mouse.Hit.Position
             local origin = Camera.CFrame.Position
-            local direction = (targetPos - origin).Unit
-
-            -- Малюємо лінію від гравця до цілі
-            local midPoint = (origin + targetPos) / 2
             local distance = (targetPos - origin).Magnitude
 
-            line.Visible = true
-            line.Size = UDim2.new(0, math.min(distance * 2, 200), 0, 3)
-            line.Position = UDim2.new(0, midPoint.X - line.Size.X.Offset / 2, 0, midPoint.Y)
-            line.Rotation = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
+            if distance > 5 then
+                local midPoint = (origin + targetPos) / 2
+                line.Visible = true
+                line.Size = UDim2.new(0, math.min(distance * 2, 300), 0, 4)
+                line.Position = UDim2.new(0, midPoint.X - line.Size.X.Offset / 2, 0, midPoint.Y)
+                line.Rotation = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
+            else
+                line.Visible = false
+            end
         end
     end)
 end
@@ -571,5 +613,5 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
-print("✅ GLASS INJECTOR v1.0 ЗАВАНТАЖЕНО!")
-print("📌 МЕНЮ: ПРАВИЙ SHIFT")
+print("✅ GLASS INJECTOR v2.0 ЗАВАНТАЖЕНО!")
+print("📌 МЕНЮ: ПРАВИЙ SHIFT | TARGET ESP: 3 СФЕРИ НАВКОЛО ГРАВЦЯ")
