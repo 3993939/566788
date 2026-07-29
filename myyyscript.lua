@@ -3,7 +3,7 @@
     - Відкриття / Закриття: [RightShift]
     - Кольори: Напівпрозорий білий / сірий
     - Жодного тексту чи написів
-    - ДОДАНО: Аімбот з налаштуваннями
+    - Спрацьовування аіму: На затискання ПКМ
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -63,14 +63,15 @@ InnerCorner.Parent = InnerFrame
 local Settings = {
     Enabled = true,
     Smoothness = 0.15,
-    FOV = 200,
+    FOV = 150,
     WallCheck = true,
     TeamCheck = false,
     AimPart = "Head",
-    Randomization = 0.05
+    Randomization = 0.05,
+    IsAiming = false
 }
 
--- ========== СТВОРЕННЯ ПОВЗУНКІВ (БЕЗ ТЕКСТУ, ТІЛЬКИ ВІЗУАЛ) ==========
+-- ========== СТВОРЕННЯ ПОВЗУНКІВ (БЕЗ ТЕКСТУ) ==========
 local function CreateSlider(parent, yPos, min, max, default, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.85, 0, 0.1, 0)
@@ -136,7 +137,7 @@ local function CreateSlider(parent, yPos, min, max, default, callback)
     return update
 end
 
--- ========== СТВОРЕННЯ ПЕРЕМИКАЧІВ ==========
+-- ========== СТВОРЕННЯ ПЕРЕМИКАЧІВ (БЕЗ ТЕКСТУ) ==========
 local function CreateToggle(parent, yPos, default, callback)
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.85, 0, 0.09, 0)
@@ -179,13 +180,35 @@ local function CreateToggle(parent, yPos, default, callback)
     return function() return state end
 end
 
+-- ========== ВІДОБРАЖЕННЯ FOV (КОЛО НА ЕКРАНІ) ==========
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
+FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.ZIndex = 0
+FOVCircle.Parent = ScreenGui
+
+local circle = Instance.new("ImageLabel")
+circle.Image = "rbxassetid://16036349377"
+circle.Size = UDim2.new(1, 0, 1, 0)
+circle.BackgroundTransparency = 1
+circle.ImageColor3 = Color3.fromRGB(180, 190, 200)
+circle.ImageTransparency = 0.85
+circle.Parent = FOVCircle
+
+local function UpdateFOVVisual()
+    FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
+    FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
+end
+
 -- ========== ДОДАВАННЯ ЕЛЕМЕНТІВ КЕРУВАННЯ ==========
-CreateSlider(MainFrame, 0.12, 0, 0.5, 0.15, function(v)
+CreateSlider(MainFrame, 0.12, 0.01, 0.5, 0.15, function(v)
     Settings.Smoothness = v
 end)
 
-CreateSlider(MainFrame, 0.26, 50, 400, 200, function(v)
+CreateSlider(MainFrame, 0.26, 30, 400, 150, function(v)
     Settings.FOV = v
+    UpdateFOVVisual()
 end)
 
 CreateSlider(MainFrame, 0.40, 0, 0.2, 0.05, function(v)
@@ -204,112 +227,101 @@ CreateToggle(MainFrame, 0.81, false, function(v)
     Settings.TeamCheck = v
 end)
 
--- ========== ОСНОВНА ЛОГІКА АІМБОТА ==========
-local function GetValidTargets()
-    local targets = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                continue
-            end
-            local part = player.Character:FindFirstChild(Settings.AimPart)
-            if not part then
-                part = player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Head")
-            end
-            if part then
-                table.insert(targets, {Player = player, Part = part})
-            end
-        end
+-- ========== ПЕРЕВІРКА ПКМ ДЛЯ АІМУ ==========
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Settings.IsAiming = true
     end
-    return targets
-end
+end)
 
-local function IsVisible(targetPart)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Settings.IsAiming = false
+    end
+end)
+
+-- ========== ОСНОВНА ЛОГІКА АІМБОТА ==========
+local function IsVisible(targetPart, targetCharacter)
     if not Settings.WallCheck then return true end
     local origin = Camera.CFrame.Position
-    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local direction = (targetPart.Position - origin)
+    
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    local ignoreList = {Camera}
+    if LocalPlayer.Character then table.insert(ignoreList, LocalPlayer.Character) end
+    if targetCharacter then table.insert(ignoreList, targetCharacter) end
+    
+    raycastParams.FilterDescendantsInstances = ignoreList
     local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
 
-local function GetAngle(targetPos)
-    local cameraPos = Camera.CFrame.Position
-    local direction = (targetPos - cameraPos).Unit
-    local angle = math.deg(math.acos(direction:Dot(Camera.CFrame.LookVector)))
-    return angle
-end
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = Settings.FOV
+    local centerScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
--- ========== ОСНОВНИЙ ЦИКЛ АІМБОТА ==========
-local CurrentTarget = nil
-
-RunService.RenderStepped:Connect(function()
-    if not Settings.Enabled then return end
-
-    local targets = GetValidTargets()
-    local bestTarget = nil
-    local bestAngle = math.huge
-
-    for _, target in pairs(targets) do
-        local angle = GetAngle(target.Part.Position)
-        if angle <= Settings.FOV and angle < bestAngle and IsVisible(target.Part) then
-            bestAngle = angle
-            bestTarget = target
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+            
+            local char = player.Character
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local part = char:FindFirstChild(Settings.AimPart) or char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+                
+                if part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    
+                    if onScreen then
+                        local targetPos2D = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (targetPos2D - centerScreen).Magnitude
+                        
+                        if distance <= shortestDistance then
+                            if IsVisible(part, char) then
+                                shortestDistance = distance
+                                closestTarget = part
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 
-    if bestTarget then
-        CurrentTarget = bestTarget
-        local targetPos = bestTarget.Part.Position
+    return closestTarget
+end
+
+-- ========== ОСНОВНИЙ ЦИКЛ ОНОВЛЕННЯ ==========
+RunService.RenderStepped:Connect(function()
+    -- Наведення працює ТІЛЬКИ коли увімкнено ТА затиснуто ПКМ
+    if not Settings.Enabled or not Settings.IsAiming then return end
+
+    local targetPart = GetClosestTarget()
+    
+    if targetPart then
+        local targetPos = targetPart.Position
         
         -- Рандомізація наводки
-        local randomOffset = Vector3.new(
-            math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10,
-            math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10,
-            math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10
-        ) / 2
-        targetPos = targetPos + randomOffset
+        if Settings.Randomization > 0 then
+            local randomOffset = Vector3.new(
+                math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10,
+                math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10,
+                math.random(-Settings.Randomization * 10, Settings.Randomization * 10) / 10
+            )
+            targetPos = targetPos + randomOffset
+        end
 
         local cameraPos = Camera.CFrame.Position
-        local direction = (targetPos - cameraPos).Unit
-        local targetCFrame = CFrame.new(cameraPos, cameraPos + direction)
+        local targetCFrame = CFrame.new(cameraPos, targetPos)
 
         if Settings.Smoothness == 0 then
             Camera.CFrame = targetCFrame
         else
             Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
-        end
-    else
-        CurrentTarget = nil
-    end
-end)
-
--- ========== ВІДОБРАЖЕННЯ FOV (ПРОЗОРЕ КОЛО) ==========
-local FOVCircle = Instance.new("Frame")
-FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
-FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
-FOVCircle.BackgroundTransparency = 1
-FOVCircle.ZIndex = 0
-FOVCircle.Parent = ScreenGui
-
-local circle = Instance.new("ImageLabel")
-circle.Image = "rbxassetid://16036349377"
-circle.Size = UDim2.new(1, 0, 1, 0)
-circle.BackgroundTransparency = 1
-circle.ImageColor3 = Color3.fromRGB(180, 190, 200)
-circle.ImageTransparency = 0.85
-circle.Parent = FOVCircle
-
--- Оновлення FOV при зміні
-local oldFOV = Settings.FOV
-spawn(function()
-    while wait(0.5) do
-        if Settings.FOV ~= oldFOV then
-            oldFOV = Settings.FOV
-            FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
-            FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
         end
     end
 end)
@@ -325,4 +337,4 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-print("✅ ЧИСТИЙ GUI + АІМБОТ ЗАВАНТАЖЕНО!")
+print("✅ PURE GLASS UI + AIMBOT УСПІШНО ЗАВАНТАЖЕНО!")
