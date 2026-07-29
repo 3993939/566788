@@ -1,8 +1,9 @@
 --[[
-    REWRITTEN ULTIMATE SCRIPT
-    - Повністю виправлений аімбот
-    - Стабільне меню (не пливе)
-    - Точний 2D ESP без зсувів
+    REWRITTEN ULTIMATE SCRIPT v3.0
+    - Прозоре меню
+    - Покращений Аімбот (Smooth, Target Part, Delta-aim)
+    - 3D Bounding Box ESP (обтягує гравця навколо)
+    - Повернуто Team Check та розширені налаштування
     - Відкриття / Закриття: [RightShift]
 ]]
 
@@ -26,55 +27,59 @@ ScreenGui.Parent = CoreGui
 -- ========== НАЛАШТУВАННЯ ==========
 local Settings = {
     Aimbot = true,
-    Smoothness = 0.2,
-    FOV = 120,
-    WallCheck = false,
-    TeamCheck = false,
+    AimPart = "Head", -- "Head" або "HumanoidRootPart"
+    Smoothness = 0.15,
+    FOV = 130,
+    WallCheck = true,
+    TeamCheck = true,
+    RMBTrigger = true, -- Наводитись тільки при затиснутому ПКМ
     
     ESP = true,
-    ESPBoxes = true,
+    ESP3DBox = true,
     ESPNames = true,
     ESPHealth = true,
     
-    FOVCircle = true,
-    Crosshair = true
+    FOVCircle = true
 }
 
--- ========== ГОЛОВНЕ ВІКНО ==========
+-- ========== ГОЛОВНЕ ВІКНО (ПРОЗОРЕ) ==========
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 480, 0, 340)
-Main.Position = UDim2.new(0.5, -240, 0.5, -170)
-Main.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
+Main.Size = UDim2.new(0, 500, 0, 360)
+Main.Position = UDim2.new(0.5, -250, 0.5, -180)
+Main.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+Main.BackgroundTransparency = 0.25 -- Напівпрозорість
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.CornerRadius = UDim.new(0, 12)
 MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(255, 60, 100)
 MainStroke.Thickness = 1.5
+MainStroke.Transparency = 0.2
 MainStroke.Parent = Main
 
 -- Шапка
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 35)
-TopBar.BackgroundColor3 = Color3.fromRGB(25, 28, 36)
+TopBar.Size = UDim2.new(1, 0, 0, 38)
+TopBar.BackgroundColor3 = Color3.fromRGB(20, 23, 30)
+TopBar.BackgroundTransparency = 0.3
 TopBar.BorderSizePixel = 0
 TopBar.Parent = Main
 
 local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 10)
+TopCorner.CornerRadius = UDim.new(0, 12)
 TopCorner.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 12, 0, 0)
+Title.Position = UDim2.new(0, 14, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "CHEAT MENU v2.0"
+Title.Text = "ULTIMATE ENGINE // GLASS EDITION"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 13
 Title.Font = Enum.Font.GothamBold
@@ -83,9 +88,10 @@ Title.Parent = TopBar
 
 -- Навігація (Вкладки)
 local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(0, 110, 1, -45)
-TabBar.Position = UDim2.new(0, 5, 0, 40)
-TabBar.BackgroundColor3 = Color3.fromRGB(14, 15, 20)
+TabBar.Size = UDim2.new(0, 120, 1, -50)
+TabBar.Position = UDim2.new(0, 8, 0, 44)
+TabBar.BackgroundColor3 = Color3.fromRGB(10, 11, 15)
+TabBar.BackgroundTransparency = 0.4
 TabBar.BorderSizePixel = 0
 TabBar.Parent = Main
 
@@ -99,15 +105,15 @@ TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = TabBar
 
 local TabPadding = Instance.new("UIPadding")
-TabPadding.PaddingTop = UDim.new(0, 5)
-TabPadding.PaddingLeft = UDim.new(0, 5)
-TabPadding.PaddingRight = UDim.new(0, 5)
+TabPadding.PaddingTop = UDim.new(0, 6)
+TabPadding.PaddingLeft = UDim.new(0, 6)
+TabPadding.PaddingRight = UDim.new(0, 6)
 TabPadding.Parent = TabBar
 
--- Контейнер для вмісту
+-- Контейнер вмісту
 local Container = Instance.new("Frame")
-Container.Size = UDim2.new(1, -130, 1, -45)
-Container.Position = UDim2.new(0, 120, 0, 40)
+Container.Size = UDim2.new(1, -142, 1, -50)
+Container.Position = UDim2.new(0, 134, 0, 44)
 Container.BackgroundTransparency = 1
 Container.Parent = Main
 
@@ -118,7 +124,7 @@ local function CreateTab(name)
     local scroll = Instance.new("ScrollingFrame")
     scroll.Size = UDim2.new(1, 0, 1, 0)
     scroll.BackgroundTransparency = 1
-    scroll.ScrollBarThickness = 3
+    scroll.ScrollBarThickness = 2
     scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 60, 100)
     scroll.Visible = false
     scroll.Parent = Container
@@ -134,11 +140,12 @@ local function CreateTab(name)
 
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, 0, 0, 32)
-    btn.BackgroundColor3 = Color3.fromRGB(22, 25, 32)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 23, 30)
+    btn.BackgroundTransparency = 0.5
     btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(150, 155, 170)
+    btn.TextColor3 = Color3.fromRGB(160, 165, 180)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
+    btn.TextSize = 11
     btn.Parent = TabBar
 
     local btnCorner = Instance.new("UICorner")
@@ -146,12 +153,11 @@ local function CreateTab(name)
     btnCorner.Parent = btn
 
     btn.MouseButton1Click:Connect(function()
-        for tName, tabObj in pairs(Tabs) do
-            tabObj.Visible = (tName == name)
-        end
+        for tName, tabObj in pairs(Tabs) do tabObj.Visible = (tName == name) end
         for tName, bObj in pairs(TabButtons) do
-            bObj.BackgroundColor3 = (tName == name) and Color3.fromRGB(255, 60, 100) or Color3.fromRGB(22, 25, 32)
-            bObj.TextColor3 = (tName == name) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 155, 170)
+            bObj.BackgroundColor3 = (tName == name) and Color3.fromRGB(255, 60, 100) or Color3.fromRGB(20, 23, 30)
+            bObj.BackgroundTransparency = (tName == name) and 0.2 or 0.5
+            bObj.TextColor3 = (tName == name) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 165, 180)
         end
     end)
 
@@ -161,19 +167,19 @@ local function CreateTab(name)
 end
 
 local AimbotTab = CreateTab("Aimbot")
-local ESPTab = CreateTab("ESP")
-local VisualsTab = CreateTab("Visuals")
+local ESPTab = CreateTab("Visuals & ESP")
 
--- Активація першої вкладки за замовчуванням
 Tabs["Aimbot"].Visible = true
 TabButtons["Aimbot"].BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+TabButtons["Aimbot"].BackgroundTransparency = 0.2
 TabButtons["Aimbot"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- ========== ЕЛЕМЕНТИ УПРАВЛІННЯ (TOGGLES / SLIDERS) ==========
+-- ========== КОМПОНЕНТИ UI ==========
 local function AddToggle(parent, text, default, callback)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -6, 0, 35)
-    card.BackgroundColor3 = Color3.fromRGB(24, 27, 35)
+    card.Size = UDim2.new(1, -8, 0, 36)
+    card.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+    card.BackgroundTransparency = 0.4
     card.Parent = parent
 
     local cardCorner = Instance.new("UICorner")
@@ -187,13 +193,13 @@ local function AddToggle(parent, text, default, callback)
     lbl.Text = text
     lbl.TextColor3 = Color3.fromRGB(220, 225, 235)
     lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
+    lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = card
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 42, 0, 20)
-    btn.Position = UDim2.new(1, -50, 0.5, -10)
+    btn.Size = UDim2.new(0, 40, 0, 20)
+    btn.Position = UDim2.new(1, -48, 0.5, -10)
     btn.BackgroundColor3 = default and Color3.fromRGB(255, 60, 100) or Color3.fromRGB(40, 45, 55)
     btn.Text = ""
     btn.Parent = card
@@ -223,8 +229,9 @@ end
 
 local function AddSlider(parent, text, min, max, default, callback)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -6, 0, 45)
-    card.BackgroundColor3 = Color3.fromRGB(24, 27, 35)
+    card.Size = UDim2.new(1, -8, 0, 46)
+    card.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+    card.BackgroundTransparency = 0.4
     card.Parent = parent
 
     local cardCorner = Instance.new("UICorner")
@@ -238,12 +245,12 @@ local function AddSlider(parent, text, min, max, default, callback)
     lbl.Text = text .. ": " .. tostring(default)
     lbl.TextColor3 = Color3.fromRGB(220, 225, 235)
     lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 12
+    lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = card
 
     local track = Instance.new("Frame")
-    track.Size = UDim2.new(1, -20, 0, 6)
+    track.Size = UDim2.new(1, -20, 0, 5)
     track.Position = UDim2.new(0, 10, 1, -12)
     track.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
     track.Parent = card
@@ -284,27 +291,26 @@ local function AddSlider(parent, text, min, max, default, callback)
     end)
 
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 end
 
--- Додавання елементів
+-- Додаємо перемикачі в меню
 AddToggle(AimbotTab, "Enable Aimbot", Settings.Aimbot, function(v) Settings.Aimbot = v end)
+AddToggle(AimbotTab, "RMB Hold Only (Затискати ПКМ)", Settings.RMBTrigger, function(v) Settings.RMBTrigger = v end)
+AddToggle(AimbotTab, "Team Check (Ігнорувати своїх)", Settings.TeamCheck, function(v) Settings.TeamCheck = v end)
+AddToggle(AimbotTab, "Wall Check (За перешкодою)", Settings.WallCheck, function(v) Settings.WallCheck = v end)
 AddSlider(AimbotTab, "FOV Radius", 30, 400, Settings.FOV, function(v) 
     Settings.FOV = v 
     FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
     FOVCircle.Position = UDim2.new(0.5, -v, 0.5, -v)
 end)
-AddToggle(AimbotTab, "Wall Check", Settings.WallCheck, function(v) Settings.WallCheck = v end)
 
 AddToggle(ESPTab, "Enable ESP", Settings.ESP, function(v) Settings.ESP = v end)
-AddToggle(ESPTab, "Boxes", Settings.ESPBoxes, function(v) Settings.ESPBoxes = v end)
+AddToggle(ESPTab, "3D Box (Обтягувати гравця)", Settings.ESP3DBox, function(v) Settings.ESP3DBox = v end)
 AddToggle(ESPTab, "Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
 AddToggle(ESPTab, "Health Bar", Settings.ESPHealth, function(v) Settings.ESPHealth = v end)
-
-AddToggle(VisualsTab, "Show FOV Circle", Settings.FOVCircle, function(v) 
+AddToggle(ESPTab, "Show FOV Circle", Settings.FOVCircle, function(v) 
     Settings.FOVCircle = v 
     FOVCircle.Visible = v
 end)
@@ -324,36 +330,52 @@ FOVCorner.Parent = FOVCircle
 local FOVStroke = Instance.new("UIStroke")
 FOVStroke.Color = Color3.fromRGB(255, 60, 100)
 FOVStroke.Thickness = 1.2
-FOVStroke.Transparency = 0.3
+FOVStroke.Transparency = 0.4
 FOVStroke.Parent = FOVCircle
 
--- ========== ПРАЦЮЮЧИЙ AIMBOT ==========
+-- ========== ОНОВЛЕНИЙ AIMBOT ==========
+local isRmbPressed = false
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRmbPressed = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        isRmbPressed = false
+    end
+end)
+
 local function GetTarget()
-    local closest, distance = nil, Settings.FOV
+    local closest, minDistance = nil, Settings.FOV
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
+            if Settings.TeamCheck and player.Team ~= nil and player.Team == LocalPlayer.Team then
+                continue
+            end
+
             local char = player.Character
-            if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local head = char.Head
-                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if char and char:FindFirstChild(Settings.AimPart) and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local part = char[Settings.AimPart]
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
 
                 if onScreen then
-                    local mag = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                    if mag < distance then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    if dist < minDistance then
                         if Settings.WallCheck then
-                            local ray = RaycastParams.new()
-                            ray.FilterType = Enum.RaycastFilterType.Exclude
-                            ray.FilterDescendantsInstances = {LocalPlayer.Character, char}
-                            local hit = workspace:Raycast(Camera.CFrame.Position, (head.Position - Camera.CFrame.Position), ray)
+                            local rayParams = RaycastParams.new()
+                            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, char}
+                            local hit = workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position), rayParams)
                             if not hit then
-                                distance = mag
-                                closest = head
+                                minDistance = dist
+                                closest = part
                             end
                         else
-                            distance = mag
-                            closest = head
+                            minDistance = dist
+                            closest = part
                         end
                     end
                 end
@@ -365,91 +387,138 @@ end
 
 RunService.RenderStepped:Connect(function()
     if Settings.Aimbot then
-        local target = GetTarget()
-        if target then
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Settings.Smoothness)
+        if not Settings.RMBTrigger or isRmbPressed then
+            local target = GetTarget()
+            if target then
+                local currentCFrame = Camera.CFrame
+                local targetCFrame = CFrame.new(currentCFrame.Position, target.Position)
+                Camera.CFrame = currentCFrame:Lerp(targetCFrame, Settings.Smoothness)
+            end
         end
     end
 end)
 
--- ========== РЕАЛЬНО ТОЧНИЙ ESP ==========
+-- ========== 3D BOX ESP (ОБТЯГУВАПНЯ МОДЕЛЬКИ) ==========
 local ESPHolder = {}
 
-local function CreateESPObj(player)
-    local box = Instance.new("Frame")
-    box.BackgroundTransparency = 1
-    box.Visible = false
-    box.Parent = ScreenGui
+local function CreateESP3D(player)
+    local lines = {}
+    for i = 1, 12 do
+        local line = Instance.new("Frame")
+        line.BackgroundColor3 = Color3.fromRGB(255, 60, 100)
+        line.BorderSizePixel = 0
+        line.Visible = false
+        line.Parent = ScreenGui
+        table.insert(lines, line)
+    end
 
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(255, 60, 100)
-    stroke.Thickness = 1.5
-    stroke.Parent = box
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 11
+    nameLabel.Text = player.Name
+    nameLabel.Visible = false
+    nameLabel.Parent = ScreenGui
 
-    local name = Instance.new("TextLabel")
-    name.Size = UDim2.new(1, 0, 0, 14)
-    name.Position = UDim2.new(0, 0, 0, -16)
-    name.BackgroundTransparency = 1
-    name.Text = player.Name
-    name.TextColor3 = Color3.fromRGB(255, 255, 255)
-    name.Font = Enum.Font.GothamBold
-    name.TextSize = 11
-    name.Parent = box
+    ESPHolder[player] = {Lines = lines, Name = nameLabel}
+end
 
-    local hpBg = Instance.new("Frame")
-    hpBg.Size = UDim2.new(0, 3, 1, 0)
-    hpBg.Position = UDim2.new(0, -6, 0, 0)
-    hpBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    hpBg.BorderSizePixel = 0
-    hpBg.Parent = box
+local function Draw3DBox(player, char)
+    local data = ESPHolder[player]
+    if not data then return end
 
-    local hpFill = Instance.new("Frame")
-    hpFill.Size = UDim2.new(1, 0, 1, 0)
-    hpFill.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
-    hpFill.BorderSizePixel = 0
-    hpFill.Parent = hpBg
+    local cframe, size = char:GetBoundingBox()
+    local halfSize = size / 2
 
-    ESPHolder[player] = {Box = box, Stroke = stroke, Name = name, HpBg = hpBg, HpFill = hpFill}
+    -- 8 кутів 3D хитбокса
+    local corners = {
+        cframe * Vector3.new(-halfSize.X,  halfSize.Y, -halfSize.Z),
+        cframe * Vector3.new( halfSize.X,  halfSize.Y, -halfSize.Z),
+        cframe * Vector3.new( halfSize.X, -halfSize.Y, -halfSize.Z),
+        cframe * Vector3.new(-halfSize.X, -halfSize.Y, -halfSize.Z),
+        cframe * Vector3.new(-halfSize.X,  halfSize.Y,  halfSize.Z),
+        cframe * Vector3.new( halfSize.X,  halfSize.Y,  halfSize.Z),
+        cframe * Vector3.new( halfSize.X, -halfSize.Y,  halfSize.Z),
+        cframe * Vector3.new(-halfSize.X, -halfSize.Y,  halfSize.Z)
+    }
+
+    local screenCorners = {}
+    local allOnScreen = true
+
+    for i, corner in ipairs(corners) do
+        local pos, onScreen = Camera:WorldToViewportPoint(corner)
+        if not onScreen then allOnScreen = false end
+        screenCorners[i] = Vector2.new(pos.X, pos.Y)
+    end
+
+    if not allOnScreen then
+        for _, l in ipairs(data.Lines) do l.Visible = false end
+        data.Name.Visible = false
+        return
+    end
+
+    -- 12 ребер куба
+    local edges = {
+        {1,2}, {2,3}, {3,4}, {4,1},
+        {5,6}, {6,7}, {7,8}, {8,5},
+        {1,5}, {2,6}, {3,7}, {4,8}
+    }
+
+    for i, edge in ipairs(edges) do
+        local p1 = screenCorners[edge[1]]
+        local p2 = screenCorners[edge[2]]
+        local line = data.Lines[i]
+
+        local distance = (p2 - p1).Magnitude
+        local center = (p1 + p2) / 2
+        local angle = math.atan2(p2.Y - p1.Y, p2.X - p1.X)
+
+        line.Size = UDim2.new(0, distance, 0, 1.5)
+        line.Position = UDim2.new(0, center.X - distance/2, 0, center.Y)
+        line.Rotation = math.deg(angle)
+        line.Visible = Settings.ESP3DBox
+    end
+
+    if Settings.ESPNames then
+        local headPos = Camera:WorldToViewportPoint(cframe.Position + Vector3.new(0, size.Y/2 + 0.5, 0))
+        data.Name.Position = UDim2.new(0, headPos.X - 50, 0, headPos.Y - 15)
+        data.Name.Size = UDim2.new(0, 100, 0, 15)
+        data.Name.Visible = true
+    else
+        data.Name.Visible = false
+    end
 end
 
 RunService.RenderStepped:Connect(function()
     if not Settings.ESP then
-        for _, obj in pairs(ESPHolder) do obj.Box.Visible = false end
+        for _, obj in pairs(ESPHolder) do
+            for _, l in ipairs(obj.Lines) do l.Visible = false end
+            obj.Name.Visible = false
+        end
         return
     end
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
-            if not ESPHolder[player] then CreateESPObj(player) end
-            local data = ESPHolder[player]
+            if Settings.TeamCheck and player.Team ~= nil and player.Team == LocalPlayer.Team then
+                if ESPHolder[player] then
+                    for _, l in ipairs(ESPHolder[player].Lines) do l.Visible = false end
+                    ESPHolder[player].Name.Visible = false
+                end
+                continue
+            end
+
+            if not ESPHolder[player] then CreateESP3D(player) end
             local char = player.Character
 
             if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local root = char.HumanoidRootPart
-                local headPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
-                local legPos = Camera:WorldToViewportPoint(root.Position - Vector3.new(0, 3.5, 0))
-                local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-
-                if onScreen then
-                    local height = math.abs(headPos.Y - legPos.Y)
-                    local width = height / 1.5
-
-                    data.Box.Size = UDim2.new(0, width, 0, height)
-                    data.Box.Position = UDim2.new(0, rootPos.X - width/2, 0, rootPos.Y - height/2)
-                    data.Box.Visible = true
-
-                    data.Stroke.Enabled = Settings.ESPBoxes
-                    data.Name.Visible = Settings.ESPNames
-                    data.HpBg.Visible = Settings.ESPHealth
-
-                    local hpPercent = char.Humanoid.Health / char.Humanoid.MaxHealth
-                    data.HpFill.Size = UDim2.new(1, 0, hpPercent, 0)
-                    data.HpFill.Position = UDim2.new(0, 0, 1 - hpPercent, 0)
-                else
-                    data.Box.Visible = false
-                end
+                Draw3DBox(player, char)
             else
-                data.Box.Visible = false
+                if ESPHolder[player] then
+                    for _, l in ipairs(ESPHolder[player].Lines) do l.Visible = false end
+                    ESPHolder[player].Name.Visible = false
+                end
             end
         end
     end
@@ -457,12 +526,13 @@ end)
 
 Players.PlayerRemoving:Connect(function(p)
     if ESPHolder[p] then
-        ESPHolder[p].Box:Destroy()
+        for _, l in ipairs(ESPHolder[p].Lines) do l:Destroy() end
+        ESPHolder[p].Name:Destroy()
         ESPHolder[p] = nil
     end
 end)
 
--- Відкриття/закриття на RightShift
+-- Відкриття/закриття меню
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightShift then
         Main.Visible = not Main.Visible
