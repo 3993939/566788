@@ -1,9 +1,8 @@
 --[[
-    REWRITTEN ENGINE v6.0 (NO RMB NO BS)
-    - Аім працює завжди (без затискання ПКМ)
-    - 3 режими Аімбота (Camera, Mouse, FOVOriented)
-    - Налаштування швидкості та Team Check
-    - ESP Silhouette (Highlight) + Ніки
+    ENGINE v7.0 (FIXED FOV & AIM)
+    - FOV Circle реально змінює розмір і слідує за центром
+    - Перероблений точний Аімбот
+    - ESP Silhouette + Names
     - Меню: [RightShift]
 ]]
 
@@ -14,108 +13,113 @@ local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
-if CoreGui:FindFirstChild("UltimateFix_Engine") then
-    CoreGui.UltimateFix_Engine:Destroy()
+if CoreGui:FindFirstChild("FixEngine_UI") then
+    CoreGui.FixEngine_UI:Destroy()
 end
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateFix_Engine"
+ScreenGui.Name = "FixEngine_UI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = CoreGui
 
 -- ========== НАЛАШТУВАННЯ ==========
 local Settings = {
-    -- Aim
     Aimbot = true,
-    AimMode = 1, -- 1 = Camera, 2 = Mouse, 3 = FOVOriented
+    AimMode = 1, -- 1 = Camera, 2 = Mouse, 3 = Instant
     AimSpeed = 0.2,
     AimFOV = 120,
     AimTeamCheck = true,
     
-    -- ESP
     ESP = true,
     ESPChams = true,
     ESPNames = true,
     ESPTeamCheck = true,
     
-    -- Visuals
     ShowFOV = true
 }
 
-local AimModes = {"Camera", "Mouse", "FOVOriented"}
+local AimModes = {"Camera", "Mouse", "Instant"}
+
+-- ========== FOV CIRCLE (ДИНАМІЧНИЙ) ==========
+local FOVCircle = Instance.new("Frame")
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOVCircle.Size = UDim2.new(0, Settings.AimFOV * 2, 0, Settings.AimFOV * 2)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = Settings.ShowFOV
+FOVCircle.Parent = ScreenGui
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(1, 0)
+FOVCorner.Parent = FOVCircle
+
+local FOVStroke = Instance.new("UIStroke")
+FOVStroke.Color = Color3.fromRGB(255, 60, 90)
+FOVStroke.Thickness = 1.5
+FOVStroke.Transparency = 0.2
+FOVStroke.Parent = FOVCircle
+
+local function UpdateFOVSize()
+    FOVCircle.Size = UDim2.new(0, Settings.AimFOV * 2, 0, Settings.AimFOV * 2)
+end
 
 -- ========== ГОЛОВНЕ МЕНЮ ==========
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 480, 0, 320)
-Main.Position = UDim2.new(0.5, -240, 0.5, -160)
+Main.Size = UDim2.new(0, 460, 0, 320)
+Main.Position = UDim2.new(0.5, -230, 0.5, -160)
 Main.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
-Main.BackgroundTransparency = 0.2
+Main.BackgroundTransparency = 0.15
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.CornerRadius = UDim.new(0, 8)
 MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(255, 60, 90)
 MainStroke.Thickness = 1.5
-MainStroke.Transparency = 0.3
 MainStroke.Parent = Main
 
--- Заголовок
+-- TopBar
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 38)
-TopBar.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
-TopBar.BackgroundTransparency = 0.3
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(18, 20, 26)
 TopBar.BorderSizePixel = 0
 TopBar.Parent = Main
 
 local TopCorner = Instance.new("UICorner")
-TopCorner.CornerRadius = UDim.new(0, 10)
+TopCorner.CornerRadius = UDim.new(0, 8)
 TopCorner.Parent = TopBar
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -20, 1, 0)
+Title.Size = UDim2.new(1, -15, 1, 0)
 Title.Position = UDim2.new(0, 15, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "ENGINE v6.0 // NO-RMB"
+Title.Text = "ENGINE v7.0 // REAL FIX"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 13
+Title.TextSize = 12
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TopBar
 
--- Навігація
+-- TabBar
 local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(0, 110, 1, -48)
-TabBar.Position = UDim2.new(0, 8, 0, 42)
-TabBar.BackgroundColor3 = Color3.fromRGB(16, 18, 24)
-TabBar.BackgroundTransparency = 0.4
-TabBar.BorderSizePixel = 0
+TabBar.Size = UDim2.new(0, 100, 1, -45)
+TabBar.Position = UDim2.new(0, 8, 0, 40)
+TabBar.BackgroundTransparency = 1
 TabBar.Parent = Main
-
-local TabBarCorner = Instance.new("UICorner")
-TabBarCorner.CornerRadius = UDim.new(0, 8)
-TabBarCorner.Parent = TabBar
 
 local TabLayout = Instance.new("UIListLayout")
 TabLayout.Padding = UDim.new(0, 4)
-TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 TabLayout.Parent = TabBar
 
-local TabPadding = Instance.new("UIPadding")
-TabPadding.PaddingTop = UDim.new(0, 6)
-TabPadding.PaddingLeft = UDim.new(0, 6)
-TabPadding.PaddingRight = UDim.new(0, 6)
-TabPadding.Parent = TabBar
-
--- Контейнер
+-- Container
 local Container = Instance.new("Frame")
-Container.Size = UDim2.new(1, -132, 1, -48)
-Container.Position = UDim2.new(0, 124, 0, 42)
+Container.Size = UDim2.new(1, -122, 1, -45)
+Container.Position = UDim2.new(0, 114, 0, 40)
 Container.BackgroundTransparency = 1
 Container.Parent = Main
 
@@ -126,6 +130,7 @@ local function CreateTab(name)
     local scroll = Instance.new("ScrollingFrame")
     scroll.Size = UDim2.new(1, 0, 1, 0)
     scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel = 0
     scroll.ScrollBarThickness = 2
     scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 60, 90)
     scroll.Visible = false
@@ -133,7 +138,6 @@ local function CreateTab(name)
 
     local layout = Instance.new("UIListLayout")
     layout.Padding = UDim.new(0, 6)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = scroll
     
     layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -141,11 +145,10 @@ local function CreateTab(name)
     end)
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 30)
-    btn.BackgroundColor3 = Color3.fromRGB(24, 26, 34)
-    btn.BackgroundTransparency = 0.5
+    btn.Size = UDim2.new(1, 0, 0, 28)
+    btn.BackgroundColor3 = Color3.fromRGB(22, 24, 32)
     btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(160, 165, 180)
+    btn.TextColor3 = Color3.fromRGB(150, 155, 170)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 11
     btn.Parent = TabBar
@@ -157,9 +160,8 @@ local function CreateTab(name)
     btn.MouseButton1Click:Connect(function()
         for tName, tabObj in pairs(Tabs) do tabObj.Visible = (tName == name) end
         for tName, bObj in pairs(TabButtons) do
-            bObj.BackgroundColor3 = (tName == name) and Color3.fromRGB(255, 60, 90) or Color3.fromRGB(24, 26, 34)
-            bObj.BackgroundTransparency = (tName == name) and 0.2 or 0.5
-            bObj.TextColor3 = (tName == name) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 165, 180)
+            bObj.BackgroundColor3 = (tName == name) and Color3.fromRGB(255, 60, 90) or Color3.fromRGB(22, 24, 32)
+            bObj.TextColor3 = (tName == name) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 155, 170)
         end
     end)
 
@@ -174,24 +176,22 @@ local VisualsTab = CreateTab("Visuals")
 
 Tabs["Aimbot"].Visible = true
 TabButtons["Aimbot"].BackgroundColor3 = Color3.fromRGB(255, 60, 90)
-TabButtons["Aimbot"].BackgroundTransparency = 0.2
 TabButtons["Aimbot"].TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- UI КОМПОНЕНТИ
+-- UI HELPERS
 local function AddToggle(parent, text, default, callback)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -6, 0, 34)
-    card.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
-    card.BackgroundTransparency = 0.4
+    card.Size = UDim2.new(1, -6, 0, 32)
+    card.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
     card.Parent = parent
 
     local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 6)
+    cardCorner.CornerRadius = UDim.new(0, 4)
     cardCorner.Parent = card
 
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(0.7, 0, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
     lbl.BackgroundTransparency = 1
     lbl.Text = text
     lbl.TextColor3 = Color3.fromRGB(220, 225, 235)
@@ -201,8 +201,8 @@ local function AddToggle(parent, text, default, callback)
     lbl.Parent = card
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 36, 0, 18)
-    btn.Position = UDim2.new(1, -44, 0.5, -9)
+    btn.Size = UDim2.new(0, 34, 0, 16)
+    btn.Position = UDim2.new(1, -40, 0.5, -8)
     btn.BackgroundColor3 = default and Color3.fromRGB(255, 60, 90) or Color3.fromRGB(45, 48, 60)
     btn.Text = ""
     btn.Parent = card
@@ -221,18 +221,17 @@ end
 
 local function AddSlider(parent, text, min, max, default, isFloat, callback)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -6, 0, 44)
-    card.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
-    card.BackgroundTransparency = 0.4
+    card.Size = UDim2.new(1, -6, 0, 42)
+    card.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
     card.Parent = parent
 
     local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 6)
+    cardCorner.CornerRadius = UDim.new(0, 4)
     cardCorner.Parent = card
 
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -20, 0, 18)
-    lbl.Position = UDim2.new(0, 10, 0, 4)
+    lbl.Size = UDim2.new(1, -16, 0, 16)
+    lbl.Position = UDim2.new(0, 8, 0, 4)
     lbl.BackgroundTransparency = 1
     lbl.Text = text .. ": " .. tostring(default)
     lbl.TextColor3 = Color3.fromRGB(220, 225, 235)
@@ -242,8 +241,8 @@ local function AddSlider(parent, text, min, max, default, isFloat, callback)
     lbl.Parent = card
 
     local track = Instance.new("Frame")
-    track.Size = UDim2.new(1, -20, 0, 4)
-    track.Position = UDim2.new(0, 10, 1, -12)
+    track.Size = UDim2.new(1, -16, 0, 4)
+    track.Position = UDim2.new(0, 8, 1, -10)
     track.BackgroundColor3 = Color3.fromRGB(45, 48, 60)
     track.Parent = card
 
@@ -275,18 +274,17 @@ end
 
 local function AddSelector(parent, text, options, defaultIndex, callback)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, -6, 0, 36)
-    card.BackgroundColor3 = Color3.fromRGB(22, 25, 33)
-    card.BackgroundTransparency = 0.4
+    card.Size = UDim2.new(1, -6, 0, 32)
+    card.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
     card.Parent = parent
 
     local cardCorner = Instance.new("UICorner")
-    cardCorner.CornerRadius = UDim.new(0, 6)
+    cardCorner.CornerRadius = UDim.new(0, 4)
     cardCorner.Parent = card
 
     local lbl = Instance.new("TextLabel")
     lbl.Size = UDim2.new(0.5, 0, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.Position = UDim2.new(0, 8, 0, 0)
     lbl.BackgroundTransparency = 1
     lbl.Text = text
     lbl.TextColor3 = Color3.fromRGB(220, 225, 235)
@@ -296,8 +294,8 @@ local function AddSelector(parent, text, options, defaultIndex, callback)
     lbl.Parent = card
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 110, 0, 22)
-    btn.Position = UDim2.new(1, -118, 0.5, -11)
+    btn.Size = UDim2.new(0, 100, 0, 20)
+    btn.Position = UDim2.new(1, -106, 0.5, -10)
     btn.BackgroundColor3 = Color3.fromRGB(35, 38, 50)
     btn.Text = options[defaultIndex]
     btn.TextColor3 = Color3.fromRGB(255, 60, 90)
@@ -321,19 +319,18 @@ end
 -- Вкладка AIMBOT
 AddToggle(AimbotTab, "Enable Aimbot", Settings.Aimbot, function(v) Settings.Aimbot = v end)
 AddSelector(AimbotTab, "Aim Mode", AimModes, Settings.AimMode, function(idx) Settings.AimMode = idx end)
-AddSlider(AimbotTab, "Aim Speed (Плавність)", 0.05, 1, Settings.AimSpeed, true, function(v) Settings.AimSpeed = v end)
+AddSlider(AimbotTab, "Aim Speed", 0.05, 1, Settings.AimSpeed, true, function(v) Settings.AimSpeed = v end)
 AddSlider(AimbotTab, "Aim FOV Radius", 30, 400, Settings.AimFOV, false, function(v) 
     Settings.AimFOV = v 
-    FOVCircle.Size = UDim2.new(0, v * 2, 0, v * 2)
-    FOVCircle.Position = UDim2.new(0.5, -v, 0.5, -v)
+    UpdateFOVSize()
 end)
 AddToggle(AimbotTab, "Aim Team Check", Settings.AimTeamCheck, function(v) Settings.AimTeamCheck = v end)
 
 -- Вкладка ESP
 AddToggle(ESPTab, "Enable ESP", Settings.ESP, function(v) Settings.ESP = v end)
-AddToggle(ESPTab, "Player Silhouettes (Обтягування)", Settings.ESPChams, function(v) Settings.ESPChams = v end)
-AddToggle(ESPTab, "Player Names (Нікнейми)", Settings.ESPNames, function(v) Settings.ESPNames = v end)
-AddToggle(ESPTab, "ESP Team Check (Ігнор своїх)", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
+AddToggle(ESPTab, "Player Silhouettes", Settings.ESPChams, function(v) Settings.ESPChams = v end)
+AddToggle(ESPTab, "Player Names", Settings.ESPNames, function(v) Settings.ESPNames = v end)
+AddToggle(ESPTab, "ESP Team Check", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
 
 -- Вкладка VISUALS
 AddToggle(VisualsTab, "Show FOV Circle", Settings.ShowFOV, function(v) 
@@ -341,29 +338,11 @@ AddToggle(VisualsTab, "Show FOV Circle", Settings.ShowFOV, function(v)
     FOVCircle.Visible = v 
 end)
 
--- ========== FOV CIRCLE ==========
-local FOVCircle = Instance.new("Frame")
-FOVCircle.Size = UDim2.new(0, Settings.AimFOV * 2, 0, Settings.AimFOV * 2)
-FOVCircle.Position = UDim2.new(0.5, -Settings.AimFOV, 0.5, -Settings.AimFOV)
-FOVCircle.BackgroundTransparency = 1
-FOVCircle.Visible = Settings.ShowFOV
-FOVCircle.Parent = ScreenGui
-
-local FOVCorner = Instance.new("UICorner")
-FOVCorner.CornerRadius = UDim.new(1, 0)
-FOVCorner.Parent = FOVCircle
-
-local FOVStroke = Instance.new("UIStroke")
-FOVStroke.Color = Color3.fromRGB(255, 60, 90)
-FOVStroke.Thickness = 1
-FOVStroke.Transparency = 0.3
-FOVStroke.Parent = FOVCircle
-
--- ========== ЛОГІКА AIMBOT (БЕЗ УМОВ) ==========
-local function GetTarget()
-    local target = nil
-    local minDist = Settings.AimFOV
-    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+-- ========== ПЕРЕРОБЛЕНИЙ AIMBOT ==========
+local function GetClosestTarget()
+    local bestTarget = nil
+    local shortestDistance = Settings.AimFOV
+    local viewportCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -372,41 +351,44 @@ local function GetTarget()
             local char = player.Character
             if char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
                 local head = char.Head
-                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
 
                 if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        target = head
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - viewportCenter).Magnitude
+                    if dist < shortestDistance then
+                        shortestDistance = dist
+                        bestTarget = head
                     end
                 end
             end
         end
     end
-    return target
+    return bestTarget
 end
 
 RunService.RenderStepped:Connect(function()
     if Settings.Aimbot then
-        local target = GetTarget()
+        local target = GetClosestTarget()
         if target then
             if Settings.AimMode == 1 then
+                -- Camera Lerp
                 Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Position), Settings.AimSpeed)
             elseif Settings.AimMode == 2 then
-                local screenPos = Camera:WorldToViewportPoint(target.Position)
+                -- Mouse relative move
+                local targetPos = Camera:WorldToViewportPoint(target.Position)
                 local mousePos = UserInputService:GetMouseLocation()
-                local moveX = (screenPos.X - mousePos.X) * Settings.AimSpeed
-                local moveY = (screenPos.Y - mousePos.Y) * Settings.AimSpeed
+                local moveX = (targetPos.X - mousePos.X) * Settings.AimSpeed
+                local moveY = (targetPos.Y - mousePos.Y) * Settings.AimSpeed
                 mousemoverel(moveX, moveY)
             elseif Settings.AimMode == 3 then
+                -- Instant Snap
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
             end
         end
     end
 end)
 
--- ========== ЛОГІКА ESP ==========
+-- ========== ESP (HIGHLIGHT + NAMES) ==========
 local ESPHolder = {}
 
 local function CreateESPForPlayer(player)
@@ -432,10 +414,10 @@ RunService.RenderStepped:Connect(function()
             local isTeam = Settings.ESPTeamCheck and player.Team ~= nil and player.Team == LocalPlayer.Team
 
             if Settings.ESP and not isTeam and char and char:FindFirstChild("Head") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local hl = char:FindFirstChild("PureChams")
+                local hl = char:FindFirstChild("FixChams")
                 if not hl then
                     hl = Instance.new("Highlight")
-                    hl.Name = "PureChams"
+                    hl.Name = "FixChams"
                     hl.Adornee = char
                     hl.FillColor = Color3.fromRGB(255, 60, 90)
                     hl.FillTransparency = 0.4
@@ -459,8 +441,8 @@ RunService.RenderStepped:Connect(function()
                     data.Name.Visible = false
                 end
             else
-                if char and char:FindFirstChild("PureChams") then
-                    char.PureChams.Enabled = false
+                if char and char:FindFirstChild("FixChams") then
+                    char.FixChams.Enabled = false
                 end
                 data.Name.Visible = false
             end
@@ -475,7 +457,7 @@ Players.PlayerRemoving:Connect(function(p)
     end
 end)
 
--- RightShift закрити / відкрити
+-- Toggle Menu [RightShift]
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Enum.KeyCode.RightShift then
         Main.Visible = not Main.Visible
