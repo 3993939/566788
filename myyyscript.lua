@@ -1,213 +1,47 @@
---[[
-    ULTIMATE ENGINE v9.0 + KEY SYSTEM (AUTO-OPEN LINK, RU)
-    - Автоматичне відкриття посилання в браузері
-    - Російська мова
-    - Key System: "Получить ключ" + "Активировать"
-]]
+local CorrectKey = "RH29WJ-PAHALOX-82JSA"
+local KeyURL = "https://work.ink/2N3N/e1b1e961-f9b1-4e70-a5a8-9e931d5440e9"
+local KeyFileName = "GlassInjector_Key.txt"
 
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
-
--- Очистка старих інтерфейсів
-if CoreGui:FindFirstChild("UltimateEngine_UI") then
-    CoreGui.UltimateEngine_UI:Destroy()
-end
-
--- ============================
--- 1. KEY SYSTEM (2 КНОПКИ, RU)
--- ============================
-local ValidKey = "RH29WJ-PAHALOX-82JSA" -- Ваш ключ
-local KeyLink = "https://work.ink/2N3N/e1b1e961-f9b1-4e70-a5a8-9e931d5440e9" -- Ваше посилання
-
-local KeyGui = Instance.new("ScreenGui")
-KeyGui.Name = "KeySystem"
-KeyGui.Parent = CoreGui
-
-local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 420, 0, 240)
-KeyFrame.Position = UDim2.new(0.5, -210, 0.5, -120)
-KeyFrame.BackgroundColor3 = Color3.fromRGB(10, 12, 18)
-KeyFrame.BackgroundTransparency = 0.15
-KeyFrame.BorderSizePixel = 0
-KeyFrame.Parent = KeyGui
-
-local KeyCorner = Instance.new("UICorner")
-KeyCorner.CornerRadius = UDim.new(0, 16)
-KeyCorner.Parent = KeyFrame
-
-local KeyStroke = Instance.new("UIStroke")
-KeyStroke.Color = Color3.fromRGB(255, 60, 90)
-KeyStroke.Thickness = 1.5
-KeyStroke.Parent = KeyFrame
-
--- Заголовок (RU)
-local KeyTitle = Instance.new("TextLabel")
-KeyTitle.Size = UDim2.new(1, 0, 0, 50)
-KeyTitle.Position = UDim2.new(0, 0, 0, 10)
-KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "🔐 АКТИВАЦИЯ СОФТА"
-KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyTitle.TextSize = 18
-KeyTitle.Font = Enum.Font.GothamBold
-KeyTitle.Parent = KeyFrame
-
--- Поле для ключа (RU)
-local KeyBox = Instance.new("TextBox")
-KeyBox.Size = UDim2.new(0.8, 0, 0, 35)
-KeyBox.Position = UDim2.new(0.1, 0, 0.30, 0)
-KeyBox.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
-KeyBox.BackgroundTransparency = 0.4
-KeyBox.Text = ""
-KeyBox.PlaceholderText = "Введите ключ..."
-KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyBox.Font = Enum.Font.Gotham
-KeyBox.TextSize = 14
-KeyBox.Parent = KeyFrame
-
-local KeyBoxCorner = Instance.new("UICorner")
-KeyBoxCorner.CornerRadius = UDim.new(0, 8)
-KeyBoxCorner.Parent = KeyBox
-
--- Кнопка "Получить ключ" (RU)
-local GetKeyBtn = Instance.new("TextButton")
-GetKeyBtn.Size = UDim2.new(0.35, 0, 0, 35)
-GetKeyBtn.Position = UDim2.new(0.08, 0, 0.55, 0)
-GetKeyBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-GetKeyBtn.BackgroundTransparency = 0.3
-GetKeyBtn.Text = "🔑 ПОЛУЧИТЬ КЛЮЧ"
-GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-GetKeyBtn.Font = Enum.Font.GothamBold
-GetKeyBtn.TextSize = 11
-GetKeyBtn.Parent = KeyFrame
-
-local GetKeyCorner = Instance.new("UICorner")
-GetKeyCorner.CornerRadius = UDim.new(0, 8)
-GetKeyCorner.Parent = GetKeyBtn
-
--- Кнопка "Активировать" (RU)
-local ActivateBtn = Instance.new("TextButton")
-ActivateBtn.Size = UDim2.new(0.35, 0, 0, 35)
-ActivateBtn.Position = UDim2.new(0.57, 0, 0.55, 0)
-ActivateBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 90)
-ActivateBtn.BackgroundTransparency = 0.2
-ActivateBtn.Text = "✅ АКТИВИРОВАТЬ"
-ActivateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ActivateBtn.Font = Enum.Font.GothamBold
-ActivateBtn.TextSize = 11
-ActivateBtn.Parent = KeyFrame
-
-local ActivateCorner = Instance.new("UICorner")
-ActivateCorner.CornerRadius = UDim.new(0, 8)
-ActivateCorner.Parent = ActivateBtn
-
--- Статус (RU)
-local KeyStatus = Instance.new("TextLabel")
-KeyStatus.Size = UDim2.new(1, 0, 0, 25)
-KeyStatus.Position = UDim2.new(0, 0, 0.82, 0)
-KeyStatus.BackgroundTransparency = 1
-KeyStatus.Text = ""
-KeyStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
-KeyStatus.TextSize = 12
-KeyStatus.Font = Enum.Font.Gotham
-KeyStatus.Parent = KeyFrame
-
--- ===== ФУНКЦІЯ АВТО-ВІДКРИТТЯ ПОСИЛАННЯ =====
-local function OpenLinkInBrowser(url)
-    local success = false
-    
-    -- Спроба 1: Synapse X (syn.request)
-    pcall(function()
-        if syn and syn.request then
-            syn.request({Url = url, Method = "GET"})
-            success = true
+-- ========== ПЕРЕВІРКА ЗБЕРЕЖЕНОГО КЛЮЧА ==========
+local function CheckSavedKey()
+    if readfile and isfile and isfile(KeyFileName) then
+        local savedKey = readfile(KeyFileName)
+        if savedKey and savedKey:gsub("%s+", "") == CorrectKey then
+            return true
         end
-    end)
-
-    -- Спроба 2: Стандартний request
-    if not success then
-        pcall(function()
-            if request then
-                request({Url = url, Method = "GET"})
-                success = true
-            end
-        end)
     end
-
-    -- Спроба 3: HttpService (не завжди працює)
-    if not success then
-        pcall(function()
-            game:GetService("HttpService"):PostAsync(url, "")
-            success = true
-        end)
-    end
-
-    -- Спроба 4: Відкриття через браузер (для деяких екзекуторів)
-    if not success then
-        pcall(function()
-            if syn and syn.crypt then
-                syn.crypt.custom("open", url)
-                success = true
-            end
-        end)
-    end
-
-    -- Якщо нічого не спрацювало — копіюємо в буфер
-    if not success then
-        setclipboard(url)
-        KeyStatus.Text = "📋 ССЫЛКА СКОПИРОВАНА В БУФЕР!"
-        KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
-    else
-        KeyStatus.Text = "✅ ССЫЛКА ОТКРЫТА В БРАУЗЕРЕ!"
-        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
-    end
+    return false
 end
 
--- Кнопка "Получить ключ"
-GetKeyBtn.MouseButton1Click:Connect(function()
-    KeyStatus.Text = "⏳ ОТКРЫВАЕМ ССЫЛКУ..."
-    KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
-    OpenLinkInBrowser(KeyLink)
-    wait(2)
-    if KeyStatus.Text ~= "📋 ССЫЛКА СКОПИРОВАНА В БУФЕР!" and KeyStatus.Text ~= "✅ ССЫЛКА ОТКРЫТА В БРАУЗЕРЕ!" then
-        KeyStatus.Text = "🔗 ПЕРЕЙДИТЕ ПО ССЫЛКЕ И ПОЛУЧИТЕ КЛЮЧ"
-        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
+-- ========== ОСНОВНИЙ СОФТ (GLASS INJECTOR v2.2) ==========
+local function LoadMainScript()
+    --[[
+        GLASS INJECTOR v2.2 (FULL FIX)
+        - ESP: правильна обводка (без написів)
+        - Target ESP: 3 сфери літають навколо гравця (зверху, збоку, діагонально)
+        - Аім: сила 1-10, вибір частини тіла, чек стін/команди
+        - Visuals: траєкторія куль
+    ]]
+
+    local UserInputService = game:GetService("UserInputService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+    local Camera = workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+
+    -- ========== ОЧИСТКА ==========
+    if CoreGui:FindFirstChild("GlassInjector_UI") then
+        CoreGui.GlassInjector_UI:Destroy()
     end
-end)
-
--- ===== ФУНКЦІЯ АКТИВАЦІЇ =====
-local function ActivateScript()
-    if KeyBox.Text == ValidKey then
-        KeyStatus.Text = "✅ КЛЮЧ ВЕРНЫЙ! ЗАГРУЗКА..."
-        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
-        KeyGui:Destroy()
-        LoadMainScript()
-    else
-        KeyStatus.Text = "❌ НЕВЕРНЫЙ КЛЮЧ!"
-        KeyStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
-        KeyBox.Text = ""
-    end
-end
-
-ActivateBtn.MouseButton1Click:Connect(ActivateScript)
-KeyBox.FocusLost:Connect(function(enter) if enter then ActivateScript() end end)
-
--- ============================
--- 2. ОСНОВНИЙ СОФТ
--- ============================
-function LoadMainScript()
-    print("✅ ULTIMATE ENGINE v9.0 АКТИВИРОВАН!")
 
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "UltimateEngine_UI"
+    ScreenGui.Name = "GlassInjector_UI"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = CoreGui
 
-    -- ===== НАЛАШТУВАННЯ =====
+    -- ========== НАЛАШТУВАННЯ ==========
     local Settings = {
         Aimbot = true,
         AimStrength = 5,
@@ -219,10 +53,9 @@ function LoadMainScript()
         ESPTeamCheck = false,
         TargetESP = true,
         ShowTrajectory = true,
-        BHop = false,
     }
 
-    -- ===== FOV КОЛО =====
+    -- ========== FOV КОЛО ==========
     local FOVCircle = Instance.new("Frame")
     FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
     FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -241,7 +74,7 @@ function LoadMainScript()
     FOVStroke.Transparency = 0.4
     FOVStroke.Parent = FOVCircle
 
-    -- ===== ГОЛОВНЕ ВІКНО (БІЛЕ СКЛО) =====
+    -- ========== ГОЛОВНЕ ВІКНО ==========
     local Main = Instance.new("Frame")
     Main.Size = UDim2.new(0, 520, 0, 420)
     Main.Position = UDim2.new(0.5, -260, 0.5, -210)
@@ -262,7 +95,7 @@ function LoadMainScript()
     MainStroke.Transparency = 0.5
     MainStroke.Parent = Main
 
-    -- ===== ВКЛАДКИ =====
+    -- ========== ВКЛАДКИ ==========
     local TabBar = Instance.new("Frame")
     TabBar.Size = UDim2.new(1, -20, 0, 40)
     TabBar.Position = UDim2.new(0, 10, 0, 8)
@@ -309,8 +142,11 @@ function LoadMainScript()
         btnCorner.Parent = btn
 
         btn.MouseButton1Click:Connect(function()
-            for n, f in pairs(TabFrames) do f.Visible = (n == name) end
+            for n, f in pairs(TabFrames) do
+                f.Visible = (n == name)
+            end
             for n, b in pairs(TabButtons) do
+                b.BackgroundColor3 = (n == name) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(255, 255, 255)
                 b.BackgroundTransparency = (n == name) and 0.3 or 0.6
                 b.TextColor3 = (n == name) and Color3.fromRGB(255, 60, 90) or Color3.fromRGB(60, 60, 80)
             end
@@ -322,13 +158,13 @@ function LoadMainScript()
 
     local AimbotTab = CreateTab("Aimbot")
     local ESPTab = CreateTab("ESP")
-    local BHopTab = CreateTab("BHop")
+    local VisualsTab = CreateTab("Visuals")
 
     TabFrames["Aimbot"].Visible = true
     TabButtons["Aimbot"].BackgroundTransparency = 0.3
     TabButtons["Aimbot"].TextColor3 = Color3.fromRGB(255, 60, 90)
 
-    -- ===== UI КОМПОНЕНТИ =====
+    -- ========== UI КОМПОНЕНТИ ==========
     local function CreateGlassCard(parent, yPos, height)
         local card = Instance.new("Frame")
         card.Size = UDim2.new(1, -8, 0, height or 36)
@@ -336,14 +172,17 @@ function LoadMainScript()
         card.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
         card.BackgroundTransparency = 0.4
         card.Parent = parent
+
         local corner = Instance.new("UICorner")
         corner.CornerRadius = UDim.new(0, 8)
         corner.Parent = card
+
         return card
     end
 
     local function AddToggle(parent, yPos, text, default, callback)
         local card = CreateGlassCard(parent, yPos, 36)
+
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(0.7, 0, 1, 0)
         lbl.Position = UDim2.new(0, 12, 0, 0)
@@ -387,6 +226,7 @@ function LoadMainScript()
 
     local function AddStrengthSlider(parent, yPos)
         local card = CreateGlassCard(parent, yPos, 50)
+
         local lbl = Instance.new("TextLabel")
         lbl.Size = UDim2.new(0.6, 0, 0.4, 0)
         lbl.Position = UDim2.new(0, 12, 0, 4)
@@ -427,7 +267,6 @@ function LoadMainScript()
             knob.Position = UDim2.new((val - 1) / 9, -8, 0.5, -8)
             lbl.Text = "Aim Strength: " .. val
             Settings.AimStrength = val
-            callback(val)
         end
 
         track.InputBegan:Connect(function(input)
@@ -491,7 +330,6 @@ function LoadMainScript()
         dropdownCorner.CornerRadius = UDim.new(0, 6)
         dropdownCorner.Parent = dropdown
 
-        local currentIdx = 1
         local options = {"Head", "Torso"}
 
         for i, name in ipairs(options) do
@@ -506,7 +344,6 @@ function LoadMainScript()
             opt.Parent = dropdown
 
             opt.MouseButton1Click:Connect(function()
-                currentIdx = i
                 Settings.AimPart = name
                 lbl.Text = "Target: " .. name
                 dropdown.Visible = false
@@ -518,7 +355,7 @@ function LoadMainScript()
         end)
     end
 
-    -- ===== ЗАПОВНЕННЯ ВКЛАДОК =====
+    -- ========== ЗАПОВНЕННЯ ВКЛАДОК ==========
     AddToggle(AimbotTab, 0.02, "Enable Aimbot", Settings.Aimbot, function(v) Settings.Aimbot = v end)
     AddStrengthSlider(AimbotTab, 0.10)
     AddPartSelector(AimbotTab, 0.28)
@@ -530,12 +367,15 @@ function LoadMainScript()
     AddToggle(ESPTab, 0.22, "Team Check", Settings.ESPTeamCheck, function(v) Settings.ESPTeamCheck = v end)
     AddToggle(ESPTab, 0.32, "Target ESP (3 Orbs)", Settings.TargetESP, function(v) Settings.TargetESP = v end)
 
-    AddToggle(BHopTab, 0.02, "Enable BunnyHop", Settings.BHop, function(v) Settings.BHop = v end)
+    AddToggle(VisualsTab, 0.02, "Show Bullet Trajectory", Settings.ShowTrajectory, function(v) Settings.ShowTrajectory = v end)
 
-    -- ===== АІМБОТ =====
+    -- ========== АІМБОТ ==========
     local function GetAimPart(char)
-        if Settings.AimPart == "Head" then return char:FindFirstChild("Head")
-        else return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso") end
+        if Settings.AimPart == "Head" then
+            return char:FindFirstChild("Head")
+        else
+            return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+        end
     end
 
     local function GetClosestTarget()
@@ -589,7 +429,7 @@ function LoadMainScript()
         end
     end)
 
-    -- ===== ESP =====
+    -- ========== ESP (ВИПРАВЛЕНО) ==========
     local ESPObjects = {}
 
     local function CreateESP(player)
@@ -666,11 +506,14 @@ function LoadMainScript()
                             for i, orbData in ipairs(data.Orbs) do
                                 local config = orbData.Config
                                 local angle = math.rad((time * config.speed * 60 + config.angleOffset) % 360)
+                                
                                 local x = pos.X + math.cos(angle) * config.radius
                                 local y = pos.Y + math.sin(angle) * config.radius * 0.5
+                                
                                 if config.vertical then
                                     y = y + math.sin(angle * 0.7) * config.height
                                 end
+
                                 orbData.Frame.Visible = true
                                 orbData.Frame.Position = UDim2.new(0, x - 7, 0, y - 7)
                             end
@@ -681,24 +524,32 @@ function LoadMainScript()
                         end
                     else
                         data.Outline.Visible = false
-                        for _, orbData in ipairs(data.Orbs) do orbData.Frame.Visible = false end
+                        for _, orbData in ipairs(data.Orbs) do
+                            orbData.Frame.Visible = false
+                        end
                     end
                 end
             else
                 data.Outline.Visible = false
-                for _, orbData in ipairs(data.Orbs) do orbData.Frame.Visible = false end
+                for _, orbData in ipairs(data.Orbs) do
+                    orbData.Frame.Visible = false
+                end
             end
         end
     end
 
     Players.PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function() CreateESP(player) end)
+        player.CharacterAdded:Connect(function()
+            CreateESP(player)
+        end)
     end)
 
     Players.PlayerRemoving:Connect(function(player)
         if ESPObjects[player] then
             ESPObjects[player].Outline:Destroy()
-            for _, orbData in ipairs(ESPObjects[player].Orbs) do orbData.Frame:Destroy() end
+            for _, orbData in ipairs(ESPObjects[player].Orbs) do
+                orbData.Frame:Destroy()
+            end
             ESPObjects[player] = nil
         end
     end)
@@ -714,26 +565,195 @@ function LoadMainScript()
         else
             for _, data in pairs(ESPObjects) do
                 data.Outline.Visible = false
-                for _, orbData in ipairs(data.Orbs) do orbData.Frame.Visible = false end
-            end
-        end
-    end)
-
-    -- ===== БАНІХОП =====
-    RunService.Heartbeat:Connect(function()
-        if Settings.BHop and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            local char = LocalPlayer.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum and hum.FloorMaterial ~= Enum.Material.Air then
-                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                for _, orbData in ipairs(data.Orbs) do
+                    orbData.Frame.Visible = false
                 end
             end
         end
     end)
 
-    -- ===== ТРАЄКТОРІЯ =====
-    local trajectoryLine = Instance.new("Frame")
-    trajectoryLine.Size = UDim2.new(0, 10, 0, 4)
-    trajectoryLine.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    trajectoryLine.BackgroundTrans
+    -- ========== ТРАЄКТОРІЯ КУЛЬ ==========
+    local TrajectoryLines = {}
+
+    local function ClearTrajectories()
+        for _, line in ipairs(TrajectoryLines) do
+            line:Destroy()
+        end
+        TrajectoryLines = {}
+    end
+
+    local function ShowBulletTrajectory()
+        ClearTrajectories()
+
+        local line = Instance.new("Frame")
+        line.Size = UDim2.new(0, 10, 0, 4)
+        line.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        line.BackgroundTransparency = 0.2
+        line.ZIndex = 5
+        line.Parent = ScreenGui
+
+        table.insert(TrajectoryLines, line)
+
+        RunService.RenderStepped:Connect(function()
+            if not Settings.ShowTrajectory then
+                line.Visible = false
+                return
+            end
+
+            local mouse = LocalPlayer:GetMouse()
+            if mouse then
+                local targetPos = mouse.Hit.Position
+                local origin = Camera.CFrame.Position
+                local distance = (targetPos - origin).Magnitude
+
+                if distance > 5 then
+                    local midPoint = (origin + targetPos) / 2
+                    line.Visible = true
+                    line.Size = UDim2.new(0, math.min(distance * 2, 300), 0, 4)
+                    line.Position = UDim2.new(0, midPoint.X - line.Size.X.Offset / 2, 0, midPoint.Y)
+                    line.Rotation = math.deg(math.atan2(targetPos.Y - origin.Y, targetPos.X - origin.X))
+                else
+                    line.Visible = false
+                end
+            end
+        end)
+    end
+
+    ShowBulletTrajectory()
+
+    -- ========== ВІДКРИТТЯ/ЗАКРИТТЯ ==========
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == Enum.KeyCode.RightShift then
+            Main.Visible = not Main.Visible
+            FOVCircle.Visible = Main.Visible
+        end
+    end)
+
+    print("✅ GLASS INJECTOR v2.2 (FULL FIX) ЗАВАНТАЖЕНО!")
+    print("📌 МЕНЮ: ПРАВИЙ SHIFT")
+end
+
+-- ========== ІНІЦІАЛІЗАЦІЯ КЕЙ-СИСТЕМИ ==========
+if CheckSavedKey() then
+    LoadMainScript()
+else
+    local CoreGui = game:GetService("CoreGui")
+    if CoreGui:FindFirstChild("GlassKeySystem_UI") then
+        CoreGui.GlassKeySystem_UI:Destroy()
+    end
+
+    local KeyGui = Instance.new("ScreenGui")
+    KeyGui.Name = "GlassKeySystem_UI"
+    KeyGui.ResetOnSpawn = false
+    KeyGui.Parent = CoreGui
+
+    local KeyFrame = Instance.new("Frame")
+    KeyFrame.Size = UDim2.new(0, 340, 0, 200)
+    KeyFrame.Position = UDim2.new(0.5, -170, 0.5, -100)
+    KeyFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    KeyFrame.BackgroundTransparency = 0.15
+    KeyFrame.BorderSizePixel = 0
+    KeyFrame.Active = true
+    KeyFrame.Draggable = true
+    KeyFrame.Parent = KeyGui
+
+    local KeyCorner = Instance.new("UICorner")
+    KeyCorner.CornerRadius = UDim.new(0, 16)
+    KeyCorner.Parent = KeyFrame
+
+    local KeyStroke = Instance.new("UIStroke")
+    KeyStroke.Color = Color3.fromRGB(255, 255, 255)
+    KeyStroke.Thickness = 1.5
+    KeyStroke.Transparency = 0.5
+    KeyStroke.Parent = KeyFrame
+
+    local KeyTitle = Instance.new("TextLabel")
+    KeyTitle.Size = UDim2.new(1, 0, 0, 35)
+    KeyTitle.BackgroundTransparency = 1
+    KeyTitle.Text = "Glass Injector — Key System"
+    KeyTitle.TextColor3 = Color3.fromRGB(40, 40, 60)
+    KeyTitle.Font = Enum.Font.GothamBold
+    KeyTitle.TextSize = 14
+    KeyTitle.Parent = KeyFrame
+
+    local KeyBox = Instance.new("TextBox")
+    KeyBox.Size = UDim2.new(0.85, 0, 0, 38)
+    KeyBox.Position = UDim2.new(0.075, 0, 0, 48)
+    KeyBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    KeyBox.BackgroundTransparency = 0.4
+    KeyBox.PlaceholderText = "Paste Key Here..."
+    KeyBox.Text = ""
+    KeyBox.TextColor3 = Color3.fromRGB(40, 40, 60)
+    KeyBox.Font = Enum.Font.Gotham
+    KeyBox.TextSize = 13
+    KeyBox.Parent = KeyFrame
+
+    local BoxCorner = Instance.new("UICorner")
+    BoxCorner.CornerRadius = UDim.new(0, 8)
+    BoxCorner.Parent = KeyBox
+
+    local CheckBtn = Instance.new("TextButton")
+    CheckBtn.Size = UDim2.new(0.4, 0, 0, 36)
+    CheckBtn.Position = UDim2.new(0.075, 0, 0, 100)
+    CheckBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 90)
+    CheckBtn.Text = "Check Key"
+    CheckBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CheckBtn.Font = Enum.Font.GothamBold
+    CheckBtn.TextSize = 13
+    CheckBtn.Parent = KeyFrame
+
+    local CheckCorner = Instance.new("UICorner")
+    CheckCorner.CornerRadius = UDim.new(0, 8)
+    CheckCorner.Parent = CheckBtn
+
+    local GetKeyBtn = Instance.new("TextButton")
+    GetKeyBtn.Size = UDim2.new(0.4, 0, 0, 36)
+    GetKeyBtn.Position = UDim2.new(0.525, 0, 0, 100)
+    GetKeyBtn.BackgroundColor3 = Color3.fromRGB(100, 110, 200)
+    GetKeyBtn.Text = "Get Key"
+    GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    GetKeyBtn.Font = Enum.Font.GothamBold
+    GetKeyBtn.TextSize = 13
+    GetKeyBtn.Parent = KeyFrame
+
+    local GetCorner = Instance.new("UICorner")
+    GetCorner.CornerRadius = UDim.new(0, 8)
+    GetCorner.Parent = GetKeyBtn
+
+    local StatusLabel = Instance.new("TextLabel")
+    StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+    StatusLabel.Position = UDim2.new(0, 0, 0, 155)
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Text = ""
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.TextSize = 12
+    StatusLabel.Parent = KeyFrame
+
+    GetKeyBtn.MouseButton1Click:Connect(function()
+        if setclipboard then
+            setclipboard(KeyURL)
+            StatusLabel.Text = "Link copied to clipboard!"
+            StatusLabel.TextColor3 = Color3.fromRGB(50, 150, 255)
+        else
+            StatusLabel.Text = "Executor doesn't support setclipboard"
+            StatusLabel.TextColor3 = Color3.fromRGB(220, 50, 50)
+        end
+    end)
+
+    CheckBtn.MouseButton1Click:Connect(function()
+        local inputKey = KeyBox.Text:gsub("%s+", "")
+        if inputKey == CorrectKey then
+            if writefile then
+                writefile(KeyFileName, inputKey)
+            end
+            StatusLabel.Text = "Correct Key! Loading..."
+            StatusLabel.TextColor3 = Color3.fromRGB(40, 180, 40)
+            task.wait(0.8)
+            KeyGui:Destroy()
+            LoadMainScript()
+        else
+            StatusLabel.Text = "Invalid Key!"
+            StatusLabel.TextColor3 = Color3.fromRGB(220, 50, 50)
+        end
+    end)
+end
