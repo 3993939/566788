@@ -1,379 +1,229 @@
--- Colin Hub: Toggle Aimbot + Rainbow ESP
--- F4 = меню, V = вкл/викл аім (постійний, без утримання)
+--[[
+    РОБОЧИЙ АІМБОТ З ПЛАВНИМ НАВЕДЕННЯМ ТА ПЕРЕВІРКОЮ СТІН
+    ВСТАВТЕ В БУДЬ-ЯКИЙ ЕКЗЕКУТОР (LEVEL 7)
+    КЕРУВАННЯ: КНОПКА "СТАРТ" В GUI
+]]
 
+-- СТВОРЕННЯ GUI
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== НАЛАШТУВАННЯ ====================
-local AimbotEnabled = false
-local Smoothness = 0.08
-local FOV = 200
-local TeamCheck = true
-local WallCheck = false
-local HitPart = "Head"
+-- ГОЛОВНЕ ВІКНО
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
-local ESPEnabled = true
-local ESPRainbow = true
-local ESPBoxes = true
-local ESPTracers = true
-local ESPNames = true
-local ESPHealth = true
+local Window = OrionLib:MakeWindow({
+    Name = "🔫 AIMBOT PRO v3",
+    HidePremium = false,
+    SaveConfig = true,
+    IntroText = "АКТИВОВАНО",
+    IntroEnabled = true
+})
 
--- ==================== ESP ====================
-local ESPCache = {}
+local MainTab = Window:MakeTab({
+    Name = "Налаштування",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
 
--- Кольори веселки
-local function GetRainbow(speed)
-    local hue = (tick() * (speed or 1)) % 1
-    return Color3.fromHSV(hue, 1, 1)
-end
+-- НАЛАШТУВАННЯ
+local Settings = {
+    Enabled = true,
+    Smoothness = 0.15,
+    FOV = 150,
+    TeamCheck = false,
+    WallCheck = true,
+    AimPart = "Head"
+}
 
-local function CreateESP(plr)
-    local data = {
-        Box = Drawing.new("Square"),
-        Tracer = Drawing.new("Line"),
-        Name = Drawing.new("Text"),
-        HPBg = Drawing.new("Square"),
-        HPBar = Drawing.new("Square"),
-    }
-    
-    -- Налаштування об'єктів
-    data.Box.Visible = false
-    data.Box.Thickness = 2
-    data.Box.Transparency = 1
-    data.Box.Filled = false
-    
-    data.Tracer.Visible = false
-    data.Tracer.Thickness = 1
-    data.Tracer.Transparency = 0.6
-    
-    data.Name.Visible = false
-    data.Name.Size = 13
-    data.Name.Center = true
-    data.Name.Outline = true
-    data.Name.OutlineColor = Color3.fromRGB(0, 0, 0)
-    
-    data.HPBg.Visible = false
-    data.HPBg.Color = Color3.fromRGB(30, 30, 30)
-    data.HPBg.Filled = true
-    data.HPBg.Transparency = 1
-    
-    data.HPBar.Visible = false
-    data.HPBar.Filled = true
-    data.HPBar.Transparency = 1
-    
-    ESPCache[plr] = data
-    
-    -- Цикл оновлення
-    local connection
-    connection = RunService.RenderStepped:Connect(function()
-        -- Видалення якщо гравець вийшов
-        if not plr.Parent then
-            for _, v in pairs(data) do pcall(function() v:Remove() end) end
-            ESPCache[plr] = nil
-            connection:Disconnect()
-            return
-        end
-        
-        -- Перевірки
-        local visible = ESPEnabled and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character:FindFirstChild("Humanoid")
-        if not visible or plr.Character.Humanoid.Health <= 0 then
-            for _, v in pairs(data) do v.Visible = false end
-            return
-        end
-        
-        if TeamCheck and plr.Team == LocalPlayer.Team then
-            for _, v in pairs(data) do v.Visible = false end
-            return
-        end
-        
-        local root = plr.Character.HumanoidRootPart
-        local hum = plr.Character.Humanoid
-        local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-        
-        if not onScreen then
-            for _, v in pairs(data) do v.Visible = false end
-            return
-        end
-        
-        local topPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, 3, 0))
-        local botPos = Camera:WorldToViewportPoint(root.Position + Vector3.new(0, -3.5, 0))
-        local boxHeight = math.abs(topPos.Y - botPos.Y)
-        local boxWidth = boxHeight / 1.8
-        
-        -- Бокс
-        if ESPBoxes then
-            data.Box.Visible = true
-            data.Box.Size = Vector2.new(boxWidth, boxHeight)
-            data.Box.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2)
-            data.Box.Color = ESPRainbow and GetRainbow(0.8) or Color3.fromRGB(255, 50, 50)
-        else
-            data.Box.Visible = false
-        end
-        
-        -- Трейсер
-        if ESPTracers then
-            data.Tracer.Visible = true
-            data.Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-            data.Tracer.To = Vector2.new(rootPos.X, rootPos.Y + boxHeight/2)
-            data.Tracer.Color = ESPRainbow and GetRainbow(0.5) or Color3.fromRGB(255, 255, 255)
-        else
-            data.Tracer.Visible = false
-        end
-        
-        -- Ім'я
-        if ESPNames then
-            local label = plr.Name
-            if ESPHealth then label = label .. " [" .. math.floor(hum.Health) .. " HP]" end
-            data.Name.Visible = true
-            data.Name.Text = label
-            data.Name.Position = Vector2.new(rootPos.X, rootPos.Y - boxHeight/2 - 15)
-            data.Name.Color = ESPRainbow and GetRainbow(1.2) or Color3.fromRGB(255, 255, 255)
-        else
-            data.Name.Visible = false
-        end
-        
-        -- HP Бар
-        if ESPHealth then
-            local hpRatio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-            data.HPBg.Visible = true
-            data.HPBg.Size = Vector2.new(boxWidth, 3)
-            data.HPBg.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2 - 5)
-            
-            data.HPBar.Visible = true
-            data.HPBar.Size = Vector2.new(boxWidth * hpRatio, 3)
-            data.HPBar.Position = Vector2.new(rootPos.X - boxWidth/2, rootPos.Y - boxHeight/2 - 5)
-            data.HPBar.Color = hpRatio > 0.6 and Color3.fromRGB(0, 255, 0) or (hpRatio > 0.3 and Color3.fromRGB(255, 255, 0) or Color3.fromRGB(255, 0, 0))
-        else
-            data.HPBg.Visible = false
-            data.HPBar.Visible = false
-        end
-    end)
-end
+-- ПЕРЕМИКАЧ ВКЛ/ВИКЛ
+MainTab:AddToggle({
+    Name = "🟢 Увімкнути Аім",
+    Default = true,
+    Callback = function(value)
+        Settings.Enabled = value
+    end
+})
 
--- Ініціалізація ESP
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then CreateESP(p) end
-end
-Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateESP(p) end end)
+MainTab:AddSlider({
+    Name = "🎯 Плавність (0 = миттєво)",
+    Min = 0,
+    Max = 0.5,
+    Default = 0.15,
+    Increment = 0.01,
+    Callback = function(value)
+        Settings.Smoothness = value
+    end
+})
 
--- ==================== АІМБОТ ====================
-local function GetClosestTarget()
-    local bestTarget = nil
-    local bestDist = FOV
-    local screenCenter = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr == LocalPlayer then continue end
-        local char = plr.Character
-        if not char then continue end
-        local hum = char:FindFirstChild("Humanoid")
-        local part = char:FindFirstChild(HitPart)
-        if not (hum and part) or hum.Health <= 0 then continue end
-        if TeamCheck and plr.Team == LocalPlayer.Team then continue end
-        
-        -- Wall Check
-        if WallCheck then
-            local origin = Camera.CFrame.Position
-            local dir = part.Position - origin
-            local ray = RaycastParams.new()
-            ray.FilterType = Enum.RaycastFilterType.Blacklist
-            ray.FilterDescendantsInstances = {LocalPlayer.Character}
-            local hit = workspace:Raycast(origin, dir, ray)
-            if hit and not hit.Instance:IsDescendantOf(char) then continue end
-        end
-        
-        local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if onScreen then
-            local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
-            if dist < bestDist then
-                bestDist = dist
-                bestTarget = part
+MainTab:AddSlider({
+    Name = "📐 Радіус FOV",
+    Min = 50,
+    Max = 400,
+    Default = 150,
+    Increment = 5,
+    Callback = function(value)
+        Settings.FOV = value
+    end
+})
+
+MainTab:AddDropdown({
+    Name = "🎯 Частина тіла",
+    Default = "Голова",
+    Options = {"Голова", "Тулуб", "Ноги"},
+    Callback = function(value)
+        if value == "Голова" then Settings.AimPart = "Head"
+        elseif value == "Тулуб" then Settings.AimPart = "UpperTorso"
+        elseif value == "Ноги" then Settings.AimPart = "LowerTorso" end
+    end
+})
+
+MainTab:AddToggle({
+    Name = "🧱 Перевірка стін",
+    Default = true,
+    Callback = function(value)
+        Settings.WallCheck = value
+    end
+})
+
+-- СПИСОК ГРАВЦІВ
+local function GetValidTargets()
+    local targets = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+            local part = player.Character:FindFirstChild(Settings.AimPart)
+            if part then
+                table.insert(targets, {Player = player, Part = part})
             end
         end
     end
-    return bestTarget
+    return targets
 end
 
--- Основний цикл аіму
+-- ПЕРЕВІРКА СТІН (RAYCAST)
+local function IsVisible(targetPart)
+    if not Settings.WallCheck then return true end
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart}
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    return result == nil
+end
+
+-- ОБЧИСЛЕННЯ КУТІВ
+local function GetAngle(targetPos)
+    local cameraPos = Camera.CFrame.Position
+    local direction = (targetPos - cameraPos).Unit
+    local angle = math.deg(math.acos(direction:Dot(Camera.CFrame.LookVector)))
+    return angle
+end
+
+-- ОБ'ЄКТ ДЛЯ ПЛАВНОСТІ
+local CurrentTarget = nil
+
+-- ОСНОВНИЙ ЦИКЛ
 RunService.RenderStepped:Connect(function()
-    if AimbotEnabled then
-        local target = GetClosestTarget()
-        if target then
-            local dir = (target.Position - Camera.CFrame.Position).Unit
-            local goal = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + dir)
-            Camera.CFrame = Camera.CFrame:Lerp(goal, Smoothness)
+    if not Settings.Enabled then return end
+
+    local targets = GetValidTargets()
+    local bestTarget = nil
+    local bestAngle = math.huge
+
+    for _, target in pairs(targets) do
+        local angle = GetAngle(target.Part.Position)
+        if angle <= Settings.FOV and angle < bestAngle and IsVisible(target.Part) then
+            bestAngle = angle
+            bestTarget = target
         end
     end
-end)
 
--- ==================== КНОПКА ТОГЛУ V ====================
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.V then
-        AimbotEnabled = not AimbotEnabled
+    if bestTarget then
+        CurrentTarget = bestTarget
+        local targetPos = bestTarget.Part.Position
+        local cameraPos = Camera.CFrame.Position
+        local direction = (targetPos - cameraPos).Unit
+        local targetCFrame = CFrame.new(cameraPos, cameraPos + direction)
+
+        if Settings.Smoothness == 0 then
+            Camera.CFrame = targetCFrame
+        else
+            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
+        end
+    else
+        CurrentTarget = nil
     end
 end)
 
--- ==================== GUI МЕНЮ ====================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ColinHub"
-ScreenGui.ResetOnSpawn = false
-pcall(function() ScreenGui.Parent = game.CoreGui end)
+-- ВІДОБРАЖЕННЯ FOV (КОЛО НА ЕКРАНІ)
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
+FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.ZIndex = 999
+FOVCircle.Parent = LocalPlayer.PlayerGui:WaitForChild("ScreenGui") or Instance.new("ScreenGui", LocalPlayer.PlayerGui)
 
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 330, 0, 250)
-Main.Position = UDim2.new(0.5, -165, 0.5, -125)
-Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 6)
+local circle = Instance.new("ImageLabel")
+circle.Image = "rbxassetid://16036349377"
+circle.Size = UDim2.new(1, 0, 1, 0)
+circle.BackgroundTransparency = 1
+circle.ImageColor3 = Color3.fromRGB(255, 0, 0)
+circle.ImageTransparency = 0.7
+circle.Parent = FOVCircle
 
--- Топ бар
-local Top = Instance.new("Frame")
-Top.Size = UDim2.new(1, 0, 0, 27)
-Top.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
-Top.BorderSizePixel = 0
-Top.Parent = Main
-Instance.new("UICorner", Top).CornerRadius = UDim.new(0, 6)
-
-local TopLabel = Instance.new("TextLabel")
-TopLabel.Text = "Colin Hub"
-TopLabel.Size = UDim2.new(1, -30, 1, 0)
-TopLabel.Position = UDim2.new(0, 8, 0, 0)
-TopLabel.BackgroundTransparency = 1
-TopLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TopLabel.Font = Enum.Font.GothamBold
-TopLabel.TextSize = 13
-TopLabel.TextXAlignment = Enum.TextXAlignment.Left
-TopLabel.Parent = Top
-
-local Close = Instance.new("TextButton")
-Close.Text = "X"
-Close.Size = UDim2.new(0, 22, 0, 22)
-Close.Position = UDim2.new(1, -25, 0, 2)
-Close.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-Close.TextColor3 = Color3.fromRGB(255, 255, 255)
-Close.Font = Enum.Font.GothamBold
-Close.TextSize = 12
-Close.BorderSizePixel = 0
-Close.Parent = Top
-
--- Вкладки
-local TabBtns = Instance.new("Frame")
-TabBtns.Size = UDim2.new(0, 75, 1, -27)
-TabBtns.Position = UDim2.new(0, 0, 0, 27)
-TabBtns.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-TabBtns.BorderSizePixel = 0
-TabBtns.Parent = Main
-
-local Content = Instance.new("ScrollingFrame")
-Content.Size = UDim2.new(1, -75, 1, -27)
-Content.Position = UDim2.new(0, 75, 0, 27)
-Content.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Content.BorderSizePixel = 0
-Content.ScrollBarThickness = 3
-Content.CanvasSize = UDim2.new(0, 0, 0, 350)
-Content.Parent = Main
-
--- Функція тоглу
-local yOffset = 5
-local function AddToggle(text, default, callback)
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, -10, 0, 28)
-    Frame.Position = UDim2.new(0, 5, 0, yOffset)
-    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Frame.BorderSizePixel = 0
-    Frame.Parent = Content
-    yOffset = yOffset + 32
-    
-    local Label = Instance.new("TextLabel")
-    Label.Text = text
-    Label.Size = UDim2.new(0.6, 0, 1, 0)
-    Label.Position = UDim2.new(0, 6, 0, 0)
-    Label.BackgroundTransparency = 1
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.Font = Enum.Font.Gotham
-    Label.TextSize = 11
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Frame
-    
-    local state = default
-    local Btn = Instance.new("TextButton")
-    Btn.Text = state and "ON" or "OFF"
-    Btn.Size = UDim2.new(0, 38, 0, 18)
-    Btn.Position = UDim2.new(1, -42, 0, 5)
-    Btn.BackgroundColor3 = state and Color3.fromRGB(0, 160, 0) or Color3.fromRGB(160, 0, 0)
-    Btn.BorderSizePixel = 0
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Font = Enum.Font.GothamBold
-    Btn.TextSize = 10
-    Btn.Parent = Frame
-    
-    Btn.MouseButton1Click:Connect(function()
-        state = not state
-        Btn.Text = state and "ON" or "OFF"
-        Btn.BackgroundColor3 = state and Color3.fromRGB(0, 160, 0) or Color3.fromRGB(160, 0, 0)
-        callback(state)
-    end)
-end
-
-local function AddButton(text, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Text = text
-    Btn.Size = UDim2.new(1, -10, 0, 26)
-    Btn.Position = UDim2.new(0, 5, 0, yOffset)
-    Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    Btn.BorderSizePixel = 0
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Font = Enum.Font.Gotham
-    Btn.TextSize = 11
-    Btn.Parent = Content
-    Btn.MouseButton1Click:Connect(callback)
-    yOffset = yOffset + 29
-end
-
--- ==================== НАПОВНЕННЯ МЕНЮ ====================
--- Аім
-AddToggle("Aimbot (V - тогл)", false, function(s) AimbotEnabled = s end)
-AddToggle("Team Check", true, function(s) TeamCheck = s end)
-AddToggle("Wall Check", false, function(s) WallCheck = s end)
-AddButton("Target: Head", function() HitPart = "Head" end)
-AddButton("Target: Torso", function() HitPart = "HumanoidRootPart" end)
-
-yOffset = yOffset + 5
-local Sep1 = Instance.new("TextLabel")
-Sep1.Text = "--- ESP ---"
-Sep1.Size = UDim2.new(1, -10, 0, 16)
-Sep1.Position = UDim2.new(0, 5, 0, yOffset)
-Sep1.BackgroundTransparency = 1
-Sep1.TextColor3 = Color3.fromRGB(180, 180, 180)
-Sep1.Font = Enum.Font.Gotham
-Sep1.TextSize = 10
-Sep1.TextXAlignment = Enum.TextXAlignment.Center
-Sep1.Parent = Content
-yOffset = yOffset + 20
-
-AddToggle("ESP", true, function(s) ESPEnabled = s end)
-AddToggle("Rainbow", true, function(s) ESPRainbow = s end)
-AddToggle("Boxes", true, function(s) ESPBoxes = s end)
-AddToggle("Tracers", true, function(s) ESPTracers = s end)
-AddToggle("Names", true, function(s) ESPNames = s end)
-AddToggle("HP Bar", true, function(s) ESPHealth = s end)
-
--- Закриття меню
-Close.MouseButton1Click:Connect(function() Main.Visible = false end)
-
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.F4 then
-        Main.Visible = not Main.Visible
+-- ОНОВЛЕННЯ РАДІУСА ПРИ ЗМІНІ
+MainTab:AddButton({
+    Name = "🔄 Оновити FOV коло",
+    Callback = function()
+        FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
+        FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
     end
-end)
+})
 
-print("Colin Hub Loaded! F4 = Menu | V = Toggle Aimbot")
+-- ТЕСТОВИЙ СПАВН МОБІВ (ДЛЯ ОФЛАЙНУ)
+MainTab:AddButton({
+    Name = "🧟 Спавнити тестових NPC",
+    Callback = function()
+        for i = 1, 5 do
+            local model = Instance.new("Model")
+            model.Name = "NPC_" .. i
+            local humanoid = Instance.new("Humanoid")
+            humanoid.Parent = model
+            local part = Instance.new("Part")
+            part.Size = Vector3.new(2, 5, 1)
+            part.Position = Vector3.new(math.random(-50, 50), 5, math.random(-50, 50))
+            part.Anchored = true
+            part.Parent = model
+            model.Parent = workspace
+            -- Додаємо голову
+            local head = Instance.new("Part")
+            head.Size = Vector3.new(1, 1, 1)
+            head.Position = part.Position + Vector3.new(0, 3, 0)
+            head.Anchored = true
+            head.Name = "Head"
+            head.Parent = model
+            -- Тулуб
+            local torso = Instance.new("Part")
+            torso.Size = Vector3.new(2, 2, 1)
+            torso.Position = part.Position + Vector3.new(0, 1.5, 0)
+            torso.Anchored = true
+            torso.Name = "UpperTorso"
+            torso.Parent = model
+        end
+        OrionLib:MakeNotification({
+            Name = "Готово",
+            Content = "Створено 5 NPC для тестування",
+            Image = "rbxassetid://4483345998",
+            Time = 3
+        })
+    end
+})
+
+OrionLib:Init()
+print("✅ AIMBOT PRO v3 ЗАВАНТАЖЕНО!")
