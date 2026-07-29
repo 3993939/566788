@@ -1,11 +1,7 @@
 --[[
-    ULTIMATE ENGINE v9.0 + KEY SYSTEM
-    - Key System (активація по ключу)
-    - Білий скляний GUI з вкладками
-    - Аімбот (3 режими, сила 1-10, чек стін/команди)
-    - ESP (обводка колом + 3D орбіти)
-    - Траєкторія куль
-    - Баніхоп
+    ULTIMATE ENGINE v9.0 + KEY SYSTEM (2 BUTTONS)
+    - Key System: "Отримати ключ" + "Активувати"
+    - Софт: Aimbot, ESP (коло + 3D орбіти), BHop, траєкторія
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -21,30 +17,26 @@ if CoreGui:FindFirstChild("UltimateEngine_UI") then
     CoreGui.UltimateEngine_UI:Destroy()
 end
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltimateEngine_UI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
-
 -- ============================
--- 1. KEY SYSTEM (Активація)
+-- 1. KEY SYSTEM (2 КНОПКИ)
 -- ============================
-local ValidKey = "FREE2026" -- ВАШ УНІКАЛЬНИЙ КЛЮЧ (ЗМІНІТЬ)
+local ValidKey = "RH29WJ-PAHALOX-82JSA" -- Ваш ключ
+local KeyLink = "https://work.ink/2N3N/e1b1e961-f9b1-4e70-a5a8-9e931d5440e9" -- Ваше посилання
 
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = "KeySystem"
 KeyGui.Parent = CoreGui
 
 local KeyFrame = Instance.new("Frame")
-KeyFrame.Size = UDim2.new(0, 350, 0, 180)
-KeyFrame.Position = UDim2.new(0.5, -175, 0.5, -90)
+KeyFrame.Size = UDim2.new(0, 420, 0, 240)
+KeyFrame.Position = UDim2.new(0.5, -210, 0.5, -120)
 KeyFrame.BackgroundColor3 = Color3.fromRGB(10, 12, 18)
 KeyFrame.BackgroundTransparency = 0.15
 KeyFrame.BorderSizePixel = 0
 KeyFrame.Parent = KeyGui
 
 local KeyCorner = Instance.new("UICorner")
-KeyCorner.CornerRadius = UDim.new(0, 12)
+KeyCorner.CornerRadius = UDim.new(0, 16)
 KeyCorner.Parent = KeyFrame
 
 local KeyStroke = Instance.new("UIStroke")
@@ -52,19 +44,21 @@ KeyStroke.Color = Color3.fromRGB(255, 60, 90)
 KeyStroke.Thickness = 1.5
 KeyStroke.Parent = KeyFrame
 
+-- Заголовок
 local KeyTitle = Instance.new("TextLabel")
-KeyTitle.Size = UDim2.new(1, 0, 0, 40)
+KeyTitle.Size = UDim2.new(1, 0, 0, 50)
 KeyTitle.Position = UDim2.new(0, 0, 0, 10)
 KeyTitle.BackgroundTransparency = 1
-KeyTitle.Text = "🔐 ENTER KEY"
+KeyTitle.Text = "🔐 АКТИВАЦІЯ СОФТУ"
 KeyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 KeyTitle.TextSize = 18
 KeyTitle.Font = Enum.Font.GothamBold
 KeyTitle.Parent = KeyFrame
 
+-- Поле для ключа
 local KeyBox = Instance.new("TextBox")
 KeyBox.Size = UDim2.new(0.8, 0, 0, 35)
-KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
+KeyBox.Position = UDim2.new(0.1, 0, 0.30, 0)
 KeyBox.BackgroundColor3 = Color3.fromRGB(30, 35, 45)
 KeyBox.BackgroundTransparency = 0.4
 KeyBox.Text = ""
@@ -75,27 +69,45 @@ KeyBox.TextSize = 14
 KeyBox.Parent = KeyFrame
 
 local KeyBoxCorner = Instance.new("UICorner")
-KeyBoxCorner.CornerRadius = UDim.new(0, 6)
+KeyBoxCorner.CornerRadius = UDim.new(0, 8)
 KeyBoxCorner.Parent = KeyBox
 
-local KeyButton = Instance.new("TextButton")
-KeyButton.Size = UDim2.new(0.4, 0, 0, 35)
-KeyButton.Position = UDim2.new(0.3, 0, 0.65, 0)
-KeyButton.BackgroundColor3 = Color3.fromRGB(255, 60, 90)
-KeyButton.BackgroundTransparency = 0.2
-KeyButton.Text = "✅ АКТИВУВАТИ"
-KeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyButton.Font = Enum.Font.GothamBold
-KeyButton.TextSize = 14
-KeyButton.Parent = KeyFrame
+-- Кнопка "Отримати ключ"
+local GetKeyBtn = Instance.new("TextButton")
+GetKeyBtn.Size = UDim2.new(0.35, 0, 0, 35)
+GetKeyBtn.Position = UDim2.new(0.08, 0, 0.55, 0)
+GetKeyBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+GetKeyBtn.BackgroundTransparency = 0.3
+GetKeyBtn.Text = "🔑 ОТРИМАТИ КЛЮЧ"
+GetKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+GetKeyBtn.Font = Enum.Font.GothamBold
+GetKeyBtn.TextSize = 11
+GetKeyBtn.Parent = KeyFrame
 
-local KeyButtonCorner = Instance.new("UICorner")
-KeyButtonCorner.CornerRadius = UDim.new(0, 6)
-KeyButtonCorner.Parent = KeyButton
+local GetKeyCorner = Instance.new("UICorner")
+GetKeyCorner.CornerRadius = UDim.new(0, 8)
+GetKeyCorner.Parent = GetKeyBtn
 
+-- Кнопка "Активувати"
+local ActivateBtn = Instance.new("TextButton")
+ActivateBtn.Size = UDim2.new(0.35, 0, 0, 35)
+ActivateBtn.Position = UDim2.new(0.57, 0, 0.55, 0)
+ActivateBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 90)
+ActivateBtn.BackgroundTransparency = 0.2
+ActivateBtn.Text = "✅ АКТИВУВАТИ"
+ActivateBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ActivateBtn.Font = Enum.Font.GothamBold
+ActivateBtn.TextSize = 11
+ActivateBtn.Parent = KeyFrame
+
+local ActivateCorner = Instance.new("UICorner")
+ActivateCorner.CornerRadius = UDim.new(0, 8)
+ActivateCorner.Parent = ActivateBtn
+
+-- Статус
 local KeyStatus = Instance.new("TextLabel")
 KeyStatus.Size = UDim2.new(1, 0, 0, 25)
-KeyStatus.Position = UDim2.new(0, 0, 0.85, 0)
+KeyStatus.Position = UDim2.new(0, 0, 0.82, 0)
 KeyStatus.BackgroundTransparency = 1
 KeyStatus.Text = ""
 KeyStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -103,7 +115,31 @@ KeyStatus.TextSize = 12
 KeyStatus.Font = Enum.Font.Gotham
 KeyStatus.Parent = KeyFrame
 
-local function CheckKey()
+-- Функція відкриття посилання
+local function OpenLink(url)
+    pcall(function()
+        if syn and syn.request then
+            syn.request({Url = url, Method = "GET"})
+        elseif request then
+            request({Url = url, Method = "GET"})
+        else
+            setclipboard(url)
+            KeyStatus.Text = "📋 ПОСИЛАННЯ СКОПІЙОВАНЕ В БУФЕР!"
+            KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
+        end
+    end)
+end
+
+GetKeyBtn.MouseButton1Click:Connect(function()
+    OpenLink(KeyLink)
+    KeyStatus.Text = "🔗 ВІДКРИВАЄМО ПОСИЛАННЯ..."
+    KeyStatus.TextColor3 = Color3.fromRGB(255, 200, 50)
+    wait(2)
+    KeyStatus.Text = "✅ ПЕРЕЙДІТЬ ЗА ПОСИЛАННЯМ ТА ОТРИМАЙТЕ КЛЮЧ"
+    KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
+end)
+
+local function ActivateScript()
     if KeyBox.Text == ValidKey then
         KeyStatus.Text = "✅ КЛЮЧ ПРАВИЛЬНИЙ! ЗАВАНТАЖЕННЯ..."
         KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -116,14 +152,19 @@ local function CheckKey()
     end
 end
 
-KeyButton.MouseButton1Click:Connect(CheckKey)
-KeyBox.FocusLost:Connect(function(enterPressed) if enterPressed then CheckKey() end end)
+ActivateBtn.MouseButton1Click:Connect(ActivateScript)
+KeyBox.FocusLost:Connect(function(enter) if enter then ActivateScript() end end)
 
 -- ============================
--- 2. ОСНОВНИЙ СКРИПТ
+-- 2. ОСНОВНИЙ СОФТ
 -- ============================
 function LoadMainScript()
     print("✅ ULTIMATE ENGINE v9.0 АКТИВОВАНО!")
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "UltimateEngine_UI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = CoreGui
 
     -- ===== НАЛАШТУВАННЯ =====
     local Settings = {
@@ -694,5 +735,4 @@ function LoadMainScript()
     print("📌 МЕНЮ: ПРАВИЙ SHIFT")
 end
 
--- Виклик функції завантаження (якщо ключ правильний - вона виконається)
-print("⏳ ОЧІКУВАННЯ КЛЮЧА...")
+print("🔐 ОЧІКУВАННЯ КЛЮЧА...")
