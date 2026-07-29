@@ -1,10 +1,9 @@
 --[[
-    GLASS INJECTOR v2.1 (FIXED ESP + 3D ORBIT TARGET)
-    - Білий скляний GUI
+    GLASS INJECTOR v2.2 (FULL FIX)
+    - ESP: правильна обводка (без написів)
+    - Target ESP: 3 сфери літають навколо гравця (зверху, збоку, діагонально)
     - Аім: сила 1-10, вибір частини тіла, чек стін/команди
-    - ESP: обводка колом (виправлено)
-    - Target ESP: 3 сфери літають навколо гравця (зверху-вниз, збоку)
-    - Visuals: траєкторія куль (товсті лінії)
+    - Visuals: траєкторія куль
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -356,7 +355,7 @@ AddToggle(ESPTab, 0.32, "Target ESP (3 Orbs)", Settings.TargetESP, function(v) S
 
 AddToggle(VisualsTab, 0.02, "Show Bullet Trajectory", Settings.ShowTrajectory, function(v) Settings.ShowTrajectory = v end)
 
--- ========== ЛОГІКА АІМБОТА ==========
+-- ========== АІМБОТ ==========
 local function GetAimPart(char)
     if Settings.AimPart == "Head" then
         return char:FindFirstChild("Head")
@@ -422,7 +421,7 @@ local ESPObjects = {}
 local function CreateESP(player)
     if ESPObjects[player] then return end
 
-    -- Обводка (коло)
+    -- Основа (коло)
     local outline = Instance.new("Frame")
     outline.Size = UDim2.new(0, 60, 0, 60)
     outline.BackgroundTransparency = 1
@@ -438,7 +437,7 @@ local function CreateESP(player)
     circle.ImageTransparency = 0.3
     circle.Parent = outline
 
-    -- Ім'я гравця
+    -- Ім'я (без зайвих написів)
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 16)
     nameLabel.Position = UDim2.new(0, 0, 1, 2)
@@ -449,12 +448,12 @@ local function CreateESP(player)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.Parent = outline
 
-    -- 3 сфери для Target ESP (з різними орбітами)
+    -- 3 сфери для Target ESP (різні траєкторії)
     local orbs = {}
     local orbConfigs = {
-        {radius = 50, speed = 1.2, angleOffset = 0, vertical = true},   -- зверху-вниз
-        {radius = 50, speed = 1.0, angleOffset = 120, vertical = false}, -- збоку (горизонтально)
-        {radius = 50, speed = 0.8, angleOffset = 240, vertical = true}   -- зверху-вниз зі зсувом
+        {radius = 50, speed = 1.2, angleOffset = 0, vertical = true, height = 30},
+        {radius = 55, speed = 0.9, angleOffset = 120, vertical = false, height = 0},
+        {radius = 45, speed = 1.5, angleOffset = 240, vertical = true, height = -25}
     }
 
     for i, config in ipairs(orbConfigs) do
@@ -492,22 +491,22 @@ local function UpdateESP()
                     data.Outline.Position = UDim2.new(0, pos.X - 30, 0, pos.Y - 30)
                     data.Name.Visible = Settings.ESPOutline
 
-                    -- Target ESP: 3 сфери з різними 3D-орбітами
                     if Settings.TargetESP then
                         for i, orbData in ipairs(data.Orbs) do
                             local config = orbData.Config
                             local angle = math.rad((time * config.speed * 60 + config.angleOffset) % 360)
+                            
+                            -- Горизонтальний рух
                             local x = pos.X + math.cos(angle) * config.radius
-                            local z = pos.Y + math.sin(angle) * config.radius * 0.5
-
+                            local y = pos.Y + math.sin(angle) * config.radius * 0.5
+                            
                             -- Вертикальний рух (зверху-вниз)
                             if config.vertical then
-                                local yOffset = math.sin(angle * 0.7) * 30
-                                z = z + yOffset
+                                y = y + math.sin(angle * 0.7) * config.height
                             end
 
                             orbData.Frame.Visible = true
-                            orbData.Frame.Position = UDim2.new(0, x - 7, 0, z - 7)
+                            orbData.Frame.Position = UDim2.new(0, x - 7, 0, y - 7)
                         end
                     else
                         for _, orbData in ipairs(data.Orbs) do
@@ -621,5 +620,5 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
-print("✅ GLASS INJECTOR v2.1 ЗАВАНТАЖЕНО!")
-print("📌 МЕНЮ: ПРАВИЙ SHIFT | TARGET ESP: 3D ОРБІТИ")
+print("✅ GLASS INJECTOR v2.2 (FULL FIX) ЗАВАНТАЖЕНО!")
+print("📌 МЕНЮ: ПРАВИЙ SHIFT")
