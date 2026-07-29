@@ -1,17 +1,14 @@
 --[[
-    РОБОЧИЙ АІМБОТ З ПЛАВНИМ НАВЕДЕННЯМ ТА ПЕРЕВІРКОЮ СТІН
-    ВСТАВТЕ В БУДЬ-ЯКИЙ ЕКЗЕКУТОР (LEVEL 7)
-    КЕРУВАННЯ: КНОПКА "СТАРТ" В GUI
+    ВИПРАВЛЕНИЙ ТА ОПТИМІЗОВАНИЙ AIMBOT PRO v3
 ]]
 
--- СТВОРЕННЯ GUI
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- ГОЛОВНЕ ВІКНО
+-- ГОЛОВНЕ ВІКНО (Orion Library)
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
 local Window = OrionLib:MakeWindow({
@@ -35,15 +32,35 @@ local Settings = {
     FOV = 150,
     TeamCheck = false,
     WallCheck = true,
-    AimPart = "Head"
+    AimPart = "Head",
+    ShowFOV = true
 }
 
--- ПЕРЕМИКАЧ ВКЛ/ВИКЛ
+-- МАЛЮВАННЯ FOV КОЛА (Drawing API)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+FOVCircle.Radius = Settings.FOV
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Thickness = 1.5
+FOVCircle.Filled = false
+FOVCircle.Transparency = 0.7
+FOVCircle.Visible = Settings.ShowFOV
+
+-- ЕЛЕМЕНТИ УПРАВЛІННЯ GUI
 MainTab:AddToggle({
     Name = "🟢 Увімкнути Аім",
-    Default = true,
+    Default = Settings.Enabled,
     Callback = function(value)
         Settings.Enabled = value
+    end
+})
+
+MainTab:AddToggle({
+    Name = "⭕ Показувати коло FOV",
+    Default = Settings.ShowFOV,
+    Callback = function(value)
+        Settings.ShowFOV = value
+        FOVCircle.Visible = value
     end
 })
 
@@ -51,7 +68,7 @@ MainTab:AddSlider({
     Name = "🎯 Плавність (0 = миттєво)",
     Min = 0,
     Max = 0.5,
-    Default = 0.15,
+    Default = Settings.Smoothness,
     Increment = 0.01,
     Callback = function(value)
         Settings.Smoothness = value
@@ -60,165 +77,155 @@ MainTab:AddSlider({
 
 MainTab:AddSlider({
     Name = "📐 Радіус FOV",
-    Min = 50,
-    Max = 400,
-    Default = 150,
+    Min = 30,
+    Max = 500,
+    Default = Settings.FOV,
     Increment = 5,
     Callback = function(value)
         Settings.FOV = value
+        FOVCircle.Radius = value
     end
 })
 
 MainTab:AddDropdown({
     Name = "🎯 Частина тіла",
     Default = "Голова",
-    Options = {"Голова", "Тулуб", "Ноги"},
+    Options = {"Голова", "Тулуб"},
     Callback = function(value)
-        if value == "Голова" then Settings.AimPart = "Head"
-        elseif value == "Тулуб" then Settings.AimPart = "UpperTorso"
-        elseif value == "Ноги" then Settings.AimPart = "LowerTorso" end
+        if value == "Голова" then 
+            Settings.AimPart = "Head"
+        elseif value == "Тулуб" then 
+            Settings.AimPart = "HumanoidRootPart"
+        end
     end
 })
 
 MainTab:AddToggle({
     Name = "🧱 Перевірка стін",
-    Default = true,
+    Default = Settings.WallCheck,
     Callback = function(value)
         Settings.WallCheck = value
     end
 })
 
--- СПИСОК ГРАВЦІВ
-local function GetValidTargets()
-    local targets = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
-                continue
-            end
-            local part = player.Character:FindFirstChild(Settings.AimPart)
-            if part then
-                table.insert(targets, {Player = player, Part = part})
-            end
-        end
+MainTab:AddToggle({
+    Name = "👥 Перевірка команди",
+    Default = Settings.TeamCheck,
+    Callback = function(value)
+        Settings.TeamCheck = value
     end
-    return targets
-end
+})
 
--- ПЕРЕВІРКА СТІН (RAYCAST)
-local function IsVisible(targetPart)
+-- ПЕРЕВІРКА ВИДИМОСТІ (RAYCAST)
+local function IsVisible(targetPart, targetCharacter)
     if not Settings.WallCheck then return true end
+    
     local origin = Camera.CFrame.Position
-    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local direction = (targetPart.Position - origin)
+    
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    local ignoreList = {Camera}
+    if LocalPlayer.Character then table.insert(ignoreList, LocalPlayer.Character) end
+    if targetCharacter then table.insert(ignoreList, targetCharacter) end
+    
+    raycastParams.FilterDescendantsInstances = ignoreList
+    
     local result = workspace:Raycast(origin, direction, raycastParams)
     return result == nil
 end
 
--- ОБЧИСЛЕННЯ КУТІВ
-local function GetAngle(targetPos)
-    local cameraPos = Camera.CFrame.Position
-    local direction = (targetPos - cameraPos).Unit
-    local angle = math.deg(math.acos(direction:Dot(Camera.CFrame.LookVector)))
-    return angle
-end
+-- ПОШУК НАЙБЛИЖЧОЇ ЦІЛІ У МЕЖАХ FOV
+local function GetClosestTarget()
+    local closestTarget = nil
+    local shortestDistance = Settings.FOV
+    local centerScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
--- ОБ'ЄКТ ДЛЯ ПЛАВНОСТІ
-local CurrentTarget = nil
-
--- ОСНОВНИЙ ЦИКЛ
-RunService.RenderStepped:Connect(function()
-    if not Settings.Enabled then return end
-
-    local targets = GetValidTargets()
-    local bestTarget = nil
-    local bestAngle = math.huge
-
-    for _, target in pairs(targets) do
-        local angle = GetAngle(target.Part.Position)
-        if angle <= Settings.FOV and angle < bestAngle and IsVisible(target.Part) then
-            bestAngle = angle
-            bestTarget = target
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+            
+            local char = player.Character
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local part = char:FindFirstChild(Settings.AimPart) or char:FindFirstChild("Head") or char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+                
+                if part then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    
+                    if onScreen then
+                        local targetPos2D = Vector2.new(screenPos.X, screenPos.Y)
+                        local distance = (targetPos2D - centerScreen).Magnitude
+                        
+                        if distance <= shortestDistance then
+                            if IsVisible(part, char) then
+                                shortestDistance = distance
+                                closestTarget = part
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
 
-    if bestTarget then
-        CurrentTarget = bestTarget
-        local targetPos = bestTarget.Part.Position
-        local cameraPos = Camera.CFrame.Position
-        local direction = (targetPos - cameraPos).Unit
-        local targetCFrame = CFrame.new(cameraPos, cameraPos + direction)
+    return closestTarget
+end
 
+-- ОСНОВНИЙ ЦИКЛ ОНОВЛЕННЯ
+RunService.RenderStepped:Connect(function()
+    -- Оновлення позиції кола FOV у центрі екрана
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    if not Settings.Enabled then return end
+
+    local targetPart = GetClosestTarget()
+    
+    if targetPart then
+        local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+        
         if Settings.Smoothness == 0 then
             Camera.CFrame = targetCFrame
         else
             Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Smoothness)
         end
-    else
-        CurrentTarget = nil
     end
 end)
 
--- ВІДОБРАЖЕННЯ FOV (КОЛО НА ЕКРАНІ)
-local FOVCircle = Instance.new("Frame")
-FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
-FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
-FOVCircle.BackgroundTransparency = 1
-FOVCircle.ZIndex = 999
-FOVCircle.Parent = LocalPlayer.PlayerGui:WaitForChild("ScreenGui") or Instance.new("ScreenGui", LocalPlayer.PlayerGui)
-
-local circle = Instance.new("ImageLabel")
-circle.Image = "rbxassetid://16036349377"
-circle.Size = UDim2.new(1, 0, 1, 0)
-circle.BackgroundTransparency = 1
-circle.ImageColor3 = Color3.fromRGB(255, 0, 0)
-circle.ImageTransparency = 0.7
-circle.Parent = FOVCircle
-
--- ОНОВЛЕННЯ РАДІУСА ПРИ ЗМІНІ
-MainTab:AddButton({
-    Name = "🔄 Оновити FOV коло",
-    Callback = function()
-        FOVCircle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
-        FOVCircle.Position = UDim2.new(0.5, -Settings.FOV, 0.5, -Settings.FOV)
-    end
-})
-
--- ТЕСТОВИЙ СПАВН МОБІВ (ДЛЯ ОФЛАЙНУ)
+-- ТЕСТОВИЙ СПАВН NPC (ДЛЯ ОФЛАЙНУ)
 MainTab:AddButton({
     Name = "🧟 Спавнити тестових NPC",
     Callback = function()
-        for i = 1, 5 do
+        for i = 1, 3 do
             local model = Instance.new("Model")
-            model.Name = "NPC_" .. i
-            local humanoid = Instance.new("Humanoid")
-            humanoid.Parent = model
-            local part = Instance.new("Part")
-            part.Size = Vector3.new(2, 5, 1)
-            part.Position = Vector3.new(math.random(-50, 50), 5, math.random(-50, 50))
-            part.Anchored = true
-            part.Parent = model
-            model.Parent = workspace
-            -- Додаємо голову
+            model.Name = "Dummy_NPC_" .. i
+            
+            local humanoid = Instance.new("Humanoid", model)
+            
+            local root = Instance.new("Part")
+            root.Name = "HumanoidRootPart"
+            root.Size = Vector3.new(2, 2, 1)
+            root.Position = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart.Position + Vector3.new(math.random(-20, 20), 0, math.random(-20, 20))) or Vector3.new(0, 5, 0)
+            root.Anchored = true
+            root.Parent = model
+            
             local head = Instance.new("Part")
-            head.Size = Vector3.new(1, 1, 1)
-            head.Position = part.Position + Vector3.new(0, 3, 0)
-            head.Anchored = true
             head.Name = "Head"
+            head.Size = Vector3.new(1.2, 1.2, 1.2)
+            head.Position = root.Position + Vector3.new(0, 2.5, 0)
+            head.Anchored = true
+            head.Color = Color3.fromRGB(255, 200, 150)
             head.Parent = model
-            -- Тулуб
-            local torso = Instance.new("Part")
-            torso.Size = Vector3.new(2, 2, 1)
-            torso.Position = part.Position + Vector3.new(0, 1.5, 0)
-            torso.Anchored = true
-            torso.Name = "UpperTorso"
-            torso.Parent = model
+            
+            model.PrimaryPart = root
+            model.Parent = workspace
         end
+        
         OrionLib:MakeNotification({
-            Name = "Готово",
-            Content = "Створено 5 NPC для тестування",
+            Name = "Успішно",
+            Content = "Створено NPC для тестування",
             Image = "rbxassetid://4483345998",
             Time = 3
         })
@@ -226,4 +233,4 @@ MainTab:AddButton({
 })
 
 OrionLib:Init()
-print("✅ AIMBOT PRO v3 ЗАВАНТАЖЕНО!")
+print("✅ AIMBOT PRO v3 УСПІШНО ЗАВАНТАЖЕНО!")
