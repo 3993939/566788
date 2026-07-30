@@ -1,13 +1,5 @@
--- // ULTIMATE ROBLOX CHEAT v3.0 \\
+-- // ULTIMATE ROBLOX CHEAT v3.0 (FIXED) \\
 -- // Open: Right Shift | Made with ❤️ \\
-
--- // Anti-Detection System \\
-local ProtectedEnvironment = {}
-local function secureCall(func, ...)
-    local success, result = pcall(func, ...)
-    if not success then return nil end
-    return result
-end
 
 -- // Services \\
 local Players = game:GetService("Players")
@@ -272,7 +264,6 @@ ContentCorner.Parent = ContentArea
 
 -- Tabs Data \\
 local Tabs = {}
-local ContentFrames = {}
 
 local function createTab(name, icon, position)
     local TabButton = Instance.new("TextButton")
@@ -304,6 +295,7 @@ local function createTab(name, icon, position)
     Content.Parent = ContentArea
     
     local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Name = "UIListLayout"
     UIListLayout.Padding = UDim.new(0, 8)
     UIListLayout.Parent = Content
     
@@ -317,7 +309,7 @@ local function createTab(name, icon, position)
         TabButton.BackgroundColor3 = Color3.fromRGB(60, 100, 255)
         TabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
         ActiveTab = name
-        Content.CanvasSize = UDim2.new(0, 0, 0, Content.UIListLayout.AbsoluteContentSize.Y + 20)
+        Content.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 20)
     end)
     
     table.insert(Tabs, {Button = TabButton, Content = Content})
@@ -357,7 +349,7 @@ local function createSection(parent, name)
     return SectionFrame
 end
 
-local function createToggle(parent, text, setting, category, position)
+local function createToggle(parent, text, setting, category)
     local ToggleFrame = Instance.new("Frame")
     ToggleFrame.Size = UDim2.new(1, -10, 0, 40)
     ToggleFrame.BackgroundTransparency = 1
@@ -399,7 +391,6 @@ local function createToggle(parent, text, setting, category, position)
     
     local toggled = Settings[category][setting]
     
-    -- Initialize toggle state \\
     if toggled then
         ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
         ToggleDot.Position = UDim2.new(1, -20, 0.5, -9)
@@ -436,7 +427,7 @@ local function createDropdown(parent, text, options, setting, category)
     DropdownButton.Size = UDim2.new(1, 0, 0, 35)
     DropdownButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     DropdownButton.BackgroundTransparency = 0.3
-    DropdownButton.Text = text .. ": " .. Settings[category][setting]
+    DropdownButton.Text = "  " .. text .. ": " .. Settings[category][setting]
     DropdownButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     DropdownButton.TextSize = 13
     DropdownButton.Font = Enum.Font.Gotham
@@ -481,7 +472,7 @@ local function createDropdown(parent, text, options, setting, category)
         
         OptButton.MouseButton1Click:Connect(function()
             Settings[category][setting] = option
-            DropdownButton.Text = text .. ": " .. option
+            DropdownButton.Text = "  " .. text .. ": " .. option
             open = false
             DropList.Visible = false
         end)
@@ -491,18 +482,18 @@ local function createDropdown(parent, text, options, setting, category)
         open = not open
         DropList.Visible = open
         if open then
-            DropList:TweenSize(UDim2.new(1, 0, 0, #options * 30), "Out", "Quad", 0.2)
+            DropList:TweenSize(UDim2.new(1, 0, 0, #options * 30), "Out", "Quad", 0.2, true)
         else
-            DropList:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.2)
+            DropList:TweenSize(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.2, true)
         end
     end)
     
     return DropdownFrame
 end
 
-local function createSlider(parent, text, min, max, default, setting, category)
+local function createSlider(parent, text, min, max, setting, category)
     local SliderFrame = Instance.new("Frame")
-    SliderFrame.Size = UDim2.new(1, -10, 0, 70)
+    SliderFrame.Size = UDim2.new(1, -10, 0, 50)
     SliderFrame.BackgroundTransparency = 1
     SliderFrame.Parent = parent
     
@@ -539,12 +530,12 @@ local function createSlider(parent, text, min, max, default, setting, category)
     
     local SliderKnob = Instance.new("TextButton")
     SliderKnob.Size = UDim2.new(0, 16, 0, 16)
-    SliderKnob.Position = UDim2.new((Settings[category][setting] - min) / (max - min), -8, 0, 25)
+    SliderKnob.Position = UDim2.new((Settings[category][setting] - min) / (max - min), -8, 0.5, -8)
     SliderKnob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     SliderKnob.Text = ""
     SliderKnob.BorderSizePixel = 0
     SliderKnob.AutoButtonColor = false
-    SliderKnob.Parent = SliderFrame
+    SliderKnob.Parent = SliderBg
     
     local KnobCorner = Instance.new("UICorner")
     KnobCorner.CornerRadius = UDim.new(1, 0)
@@ -571,7 +562,7 @@ local function createSlider(parent, text, min, max, default, setting, category)
             local value = math.floor(min + (max - min) * percent)
             
             SliderFill.Size = UDim2.new(percent, 0, 1, 0)
-            SliderKnob.Position = UDim2.new(percent, -8, 0, 25)
+            SliderKnob.Position = UDim2.new(percent, -8, 0.5, -8)
             SliderLabel.Text = text .. ": " .. value
             Settings[category][setting] = value
         end
@@ -596,10 +587,6 @@ createSection(ESPContent, "ESP SETTINGS")
 createToggle(ESPContent, "Enable ESP", "Enabled", "ESP")
 createToggle(ESPContent, "Team Check", "TeamCheck", "ESP")
 createToggle(ESPContent, "ESP Boxes", "Boxes", "ESP")
-createToggle(ESPContent, "ESP Tracers", "Tracers", "ESP")
-createToggle(ESPContent, "Player Names", "Names", "ESP")
-createToggle(ESPContent, "Player Distance", "Distance", "ESP")
-createToggle(ESPContent, "Health Bar", "Health", "ESP")
 
 -- VISUALS TAB \\
 createSection(VisualsContent, "VISUAL SETTINGS")
@@ -616,7 +603,6 @@ local ESPObjects = {}
 
 local function getClosestPlayer()
     if not Settings.Aimbot.Enabled then return nil end
-    if Settings.Aimbot.AimKey and not UserInputService:IsKeyDown(Settings.Aimbot.AimKey) then return nil end
     
     local closest = nil
     local closestDist = Settings.Aimbot.FOV
@@ -629,26 +615,22 @@ local function getClosestPlayer()
             local humanoid = character:FindFirstChild("Humanoid")
             
             if root and humanoid and humanoid.Health > 0 then
-                -- Team Check \\
-                if Settings.Aimbot.TeamCheck then
-                    pcall(function()
-                        if player.Team == LocalPlayer.Team then return end
-                    end)
+                if Settings.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
+                    continue
                 end
                 
                 local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
                 if onScreen then
                     local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                     
-                    -- Wall Check \\
                     if Settings.Aimbot.WallCheck then
                         local rayParams = RaycastParams.new()
-                        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                        rayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
                         
                         local ray = Workspace:Raycast(Camera.CFrame.Position, (root.Position - Camera.CFrame.Position).Unit * 1000, rayParams)
-                        if ray and Players:GetPlayerFromCharacter(ray.Instance.Parent) ~= player then
-                            goto continue
+                        if ray and not ray.Instance:IsDescendantOf(character) then
+                            continue
                         end
                     end
                     
@@ -659,13 +641,12 @@ local function getClosestPlayer()
                 end
             end
         end
-        ::continue::
     end
     
     return closest
 end
 
-RunService:BindToRenderStep("Aimbot", 201, function()
+RunService:BindToRenderStep("Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if not Settings.Aimbot.Enabled then return end
     
     local target = getClosestPlayer()
@@ -674,15 +655,12 @@ RunService:BindToRenderStep("Aimbot", 201, function()
         if aimPart then
             local targetPos = aimPart.Position
             
-            -- Prediction \\
             if Settings.Aimbot.Prediction and target.Character:FindFirstChild("HumanoidRootPart") then
                 local velocity = target.Character.HumanoidRootPart.Velocity
-                local ping = Players:GetNetworkPing() or 0.05
-                targetPos = targetPos + (velocity * ping * 0.5)
+                targetPos = targetPos + (velocity * 0.033)
             end
             
-            -- Smooth aim \\
-            local smoothFactor = math.clamp(1 / Settings.Aimbot.Smoothness, 0.01, 1)
+            local smoothFactor = math.clamp(1 / math.max(Settings.Aimbot.Smoothness, 1), 0.05, 1)
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), smoothFactor)
         end
     end
@@ -700,32 +678,22 @@ local function updateESP()
     
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            -- Team Check \\
-            if Settings.ESP.TeamCheck then
-                pcall(function()
-                    if player.Team == LocalPlayer.Team then
-                        if ESPObjects[player] then
-                            ESPObjects[player]:Destroy()
-                            ESPObjects[player] = nil
-                        end
-                        return
-                    end
-                end)
+            if Settings.ESP.TeamCheck and player.Team == LocalPlayer.Team then
+                if ESPObjects[player] then
+                    ESPObjects[player]:Destroy()
+                    ESPObjects[player] = nil
+                end
+                continue
             end
             
-            if not ESPObjects[player] then
-                ESPObjects[player] = Instance.new("Highlight")
-                ESPObjects[player].FillColor = Color3.fromRGB(255, 255, 255)
-                ESPObjects[player].FillTransparency = Settings.ESP.Boxes and 0.7 or 1
-                ESPObjects[player].OutlineColor = Color3.fromRGB(255, 255, 255)
-                ESPObjects[player].OutlineTransparency = 0.3
-                ESPObjects[player].Parent = player.Character
-            end
-            
-            local highlight = ESPObjects[player]
-            if highlight and highlight.Parent then
-                highlight.FillTransparency = Settings.ESP.Boxes and 0.7 or 1
-                highlight.OutlineTransparency = Settings.ESP.Boxes and 0.3 or 1
+            if not ESPObjects[player] or not ESPObjects[player].Parent then
+                local highlight = Instance.new("Highlight")
+                highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                highlight.FillTransparency = 0.5
+                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                highlight.OutlineTransparency = 0
+                highlight.Parent = player.Character
+                ESPObjects[player] = highlight
             end
         end
     end
@@ -735,24 +703,35 @@ RunService:BindToRenderStep("ESP", 200, function()
     pcall(updateESP)
 end)
 
--- // Update HUD \\
+-- // Update HUD & Speed \\
+local lastTime = tick()
 RunService:BindToRenderStep("HUDUpdate", 199, function()
-    -- Update status dots \\
     AimbotDot.BackgroundColor3 = Settings.Aimbot.Enabled and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
-    ESPDot.BackgroundColor3 = Settings.ESP.Enabled and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
-    VisualsDot.BackgroundColor3 = Settings.Visuals.Chams and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
+    AimbotDot.Parent.Label.Text = "Aimbot: " .. (Settings.Aimbot.Enabled and "ON" or "OFF")
     
-    -- Update FPS \\
-    local fps = math.floor(1 / (RunService.RenderStepped:Wait() or 0.016))
+    ESPDot.BackgroundColor3 = Settings.ESP.Enabled and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
+    ESPDot.Parent.Label.Text = "ESP: " .. (Settings.ESP.Enabled and "ON" or "OFF")
+    
+    VisualsDot.BackgroundColor3 = Settings.Visuals.Chams and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
+    VisualsDot.Parent.Label.Text = "Visuals: " .. (Settings.Visuals.Chams and "ON" or "OFF")
+    
+    local currentTime = tick()
+    local fps = math.floor(1 / (currentTime - lastTime))
+    lastTime = currentTime
     FPSCounter.Text = "FPS: " .. tostring(fps)
     
-    -- Update FOV \\
     if Settings.Visuals.FOV ~= 70 then
         Camera.FieldOfView = Settings.Visuals.FOV
     end
+    
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        if Settings.Misc.SpeedValue > 16 then
+            LocalPlayer.Character.Humanoid.WalkSpeed = Settings.Misc.SpeedValue
+        end
+    end
 end)
 
--- // Key System - Open with Right Shift \\
+-- // Key System - Toggle Menu \\
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -761,7 +740,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         MainMenu.Visible = MenuOpen
         
         if MenuOpen then
-            -- Animate menu opening \\
             MainMenu.Size = UDim2.new(0, 0, 0, 0)
             MainMenu.Position = UDim2.new(0.5, 0, 0.5, 0)
             TweenService:Create(MainMenu, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
@@ -773,7 +751,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 -- // Initialize \\
--- Show first tab \\
 if Tabs[1] then
+    Tabs[1].Content.Visible = true
     Tabs[1].Button.BackgroundColor3 = Color3.fromRGB(60, 100, 255)
-    Tabs[1].Button.TextColor3 = Color3.fromRGB
+    Tabs[1].Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+end
+
+print("Ultimate Cheat v3.0 successfully loaded!")
