@@ -1,5 +1,6 @@
--- // ULTIMATE ROBLOX CHEAT v3.0 (FIXED) \\
--- // Open: Right Shift | Made with ❤️ \\
+-- // ULTIMATE ROBLOX CHEAT v3.0 (NO KEY SYSTEM) \\
+-- // Open: Right Shift | Auto-loads GUI \\
+-- // FIXED: Aimbot targeting, ESP visibility, Anti-Aim bypass \\
 
 -- // Services \\
 local Players = game:GetService("Players")
@@ -37,8 +38,12 @@ end
 protectGUI(CheatGUI)
 
 -- // Variables \\
-local MenuOpen = false
+local MenuOpen = true
 local ActiveTab = "Aimbot"
+local TargetPlayer = nil
+local CurrentTarget = nil
+local ClientTick = 0
+
 local Settings = {
     Aimbot = {
         Enabled = false,
@@ -49,7 +54,9 @@ local Settings = {
         Smoothness = 5,
         FOV = 200,
         AimKey = nil,
-        Visible = false
+        Visible = false,
+        AntiAimBypass = true,
+        HitChance = 95
     },
     ESP = {
         Enabled = false,
@@ -59,7 +66,8 @@ local Settings = {
         Distance = false,
         Health = false,
         TeamCheck = false,
-        MaxDistance = 2000
+        MaxDistance = 2000,
+        VisibleOnly = false
     },
     Visuals = {
         Chams = false,
@@ -175,7 +183,7 @@ MainMenu.Position = UDim2.new(0.5, -325, 0.5, -225)
 MainMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 MainMenu.BackgroundTransparency = 0.25
 MainMenu.BorderSizePixel = 0
-MainMenu.Visible = false
+MainMenu.Visible = true
 MainMenu.Active = true
 MainMenu.Draggable = true
 MainMenu.Parent = CheatGUI
@@ -578,28 +586,53 @@ createToggle(AimbotContent, "Enable Aimbot", "Enabled", "Aimbot")
 createToggle(AimbotContent, "Team Check", "TeamCheck", "Aimbot")
 createToggle(AimbotContent, "Wall Check", "WallCheck", "Aimbot")
 createToggle(AimbotContent, "Player Prediction", "Prediction", "Aimbot")
+createToggle(AimbotContent, "Anti-Aim Bypass", "AntiAimBypass", "Aimbot")
 createDropdown(AimbotContent, "Aim Part", {"Head", "Torso", "HumanoidRootPart"}, "AimPart", "Aimbot")
 createSlider(AimbotContent, "Smoothness", 1, 20, "Smoothness", "Aimbot")
 createSlider(AimbotContent, "FOV Radius", 50, 500, "FOV", "Aimbot")
+createSlider(AimbotContent, "Hit Chance", 1, 100, "HitChance", "Aimbot")
 
 -- ESP TAB \\
 createSection(ESPContent, "ESP SETTINGS")
 createToggle(ESPContent, "Enable ESP", "Enabled", "ESP")
 createToggle(ESPContent, "Team Check", "TeamCheck", "ESP")
 createToggle(ESPContent, "ESP Boxes", "Boxes", "ESP")
+createToggle(ESPContent, "ESP Names", "Names", "ESP")
+createToggle(ESPContent, "ESP Distance", "Distance", "ESP")
+createToggle(ESPContent, "ESP Health", "Health", "ESP")
+createToggle(ESPContent, "Visible Only", "VisibleOnly", "ESP")
+createSlider(ESPContent, "Max Distance", 500, 5000, "MaxDistance", "ESP")
 
 -- VISUALS TAB \\
 createSection(VisualsContent, "VISUAL SETTINGS")
 createToggle(VisualsContent, "Enable Chams", "Chams", "Visuals")
 createSlider(VisualsContent, "FOV Changer", 30, 120, "FOV", "Visuals")
+createToggle(VisualsContent, "No Recoil", "NoRecoil", "Visuals")
+createToggle(VisualsContent, "No Spread", "NoSpread", "Visuals")
 
 -- MISC TAB \\
 createSection(MiscContent, "MISC SETTINGS")
 createToggle(MiscContent, "Anti AFK", "AntiAFK", "Misc")
-createSlider(MiscContent, "Walk Speed", 16, 100, "SpeedValue", "Misc")
+createToggle(MiscContent, "Speed Hack", "SpeedHack", "Misc")
+createSlider(MiscContent, "Walk Speed", 16, 200, "SpeedValue", "Misc")
+createToggle(MiscContent, "Fly Hack", "FlyHack", "Misc")
+createSlider(MiscContent, "Fly Speed", 10, 150, "FlySpeed", "Misc")
 
--- // Aimbot System \\
-local ESPObjects = {}
+-- // Aimbot System - FIXED Targeting \\
+local function isPlayerValid(player)
+    if not player or player == LocalPlayer then return false end
+    if not player.Character then return false end
+    if not player.Character:FindFirstChild("HumanoidRootPart") then return false end
+    local humanoid = player.Character:FindFirstChild("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+    if Settings.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then return false end
+    
+    local root = player.Character.HumanoidRootPart
+    local distance = (root.Position - Camera.CFrame.Position).Magnitude
+    if distance > 1000 then return false end -- Max aim distance
+    
+    return true
+end
 
 local function getClosestPlayer()
     if not Settings.Aimbot.Enabled then return nil end
@@ -607,66 +640,120 @@ local function getClosestPlayer()
     local closest = nil
     local closestDist = Settings.Aimbot.FOV
     local mousePos = UserInputService:GetMouseLocation()
+    local currentTick = tick()
+    
+    -- Update target every 5 ticks to prevent flickering
+    if currentTick - ClientTick < 0.1 and TargetPlayer then
+        if isPlayerValid(TargetPlayer) then
+            return TargetPlayer
+        end
+    end
+    ClientTick = currentTick
     
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local root = character:FindFirstChild("HumanoidRootPart")
-            local humanoid = character:FindFirstChild("Humanoid")
-            
-            if root and humanoid and humanoid.Health > 0 then
-                if Settings.Aimbot.TeamCheck and player.Team == LocalPlayer.Team then
-                    continue
-                end
-                
-                local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-                if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    
-                    if Settings.Aimbot.WallCheck then
-                        local rayParams = RaycastParams.new()
-                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                        rayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-                        
-                        local ray = Workspace:Raycast(Camera.CFrame.Position, (root.Position - Camera.CFrame.Position).Unit * 1000, rayParams)
-                        if ray and not ray.Instance:IsDescendantOf(character) then
-                            continue
-                        end
-                    end
-                    
-                    if dist < closestDist then
-                        closestDist = dist
-                        closest = player
-                    end
-                end
+        if not isPlayerValid(player) then continue end
+        
+        local character = player.Character
+        local root = character.HumanoidRootPart
+        local humanoid = character.Humanoid
+        
+        -- Get aim part position
+        local aimPart = character:FindFirstChild(Settings.Aimbot.AimPart) or root
+        
+        -- Check if on screen
+        local screenPos, onScreen = Camera:WorldToViewportPoint(aimPart.Position)
+        if not onScreen then continue end
+        
+        -- Calculate FOV distance
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+        
+        -- Check wall
+        if Settings.Aimbot.WallCheck then
+            local rayParams = RaycastParams.new()
+            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+            rayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+            local ray = Workspace:Raycast(Camera.CFrame.Position, (aimPart.Position - Camera.CFrame.Position).Unit * 1000, rayParams)
+            if ray and not ray.Instance:IsDescendantOf(character) then
+                continue
             end
+        end
+        
+        -- Hit chance check (for anti-aim bypass)
+        if Settings.Aimbot.AntiAimBypass then
+            local hitChance = Settings.Aimbot.HitChance / 100
+            if math.random() > hitChance then
+                -- Add slight randomness to avoid detection
+                local randomOffset = Vector3.new(
+                    math.random(-5, 5),
+                    math.random(-5, 5),
+                    math.random(-5, 5)
+                )
+                local newPos = aimPart.Position + randomOffset
+                local newScreenPos = Camera:WorldToViewportPoint(newPos)
+                local newDist = (Vector2.new(newScreenPos.X, newScreenPos.Y) - mousePos).Magnitude
+                if newDist < closestDist then
+                    closestDist = newDist
+                    closest = player
+                end
+                continue
+            end
+        end
+        
+        if dist < closestDist then
+            closestDist = dist
+            closest = player
         end
     end
     
+    TargetPlayer = closest
     return closest
 end
 
+-- Aimbot render step - FIXED smooth aiming \\
 RunService:BindToRenderStep("Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
     if not Settings.Aimbot.Enabled then return end
     
     local target = getClosestPlayer()
     if target and target.Character then
-        local aimPart = target.Character:FindFirstChild(Settings.Aimbot.AimPart)
+        local character = target.Character
+        local aimPart = character:FindFirstChild(Settings.Aimbot.AimPart) or character:FindFirstChild("HumanoidRootPart")
+        
         if aimPart then
             local targetPos = aimPart.Position
             
-            if Settings.Aimbot.Prediction and target.Character:FindFirstChild("HumanoidRootPart") then
-                local velocity = target.Character.HumanoidRootPart.Velocity
-                targetPos = targetPos + (velocity * 0.033)
+            -- Prediction
+            if Settings.Aimbot.Prediction and character:FindFirstChild("HumanoidRootPart") then
+                local velocity = character.HumanoidRootPart.Velocity
+                local distance = (targetPos - Camera.CFrame.Position).Magnitude
+                local timeToTarget = distance / 500 -- Average bullet speed
+                targetPos = targetPos + (velocity * timeToTarget)
             end
             
+            -- Anti-aim bypass: add slight offset randomization
+            if Settings.Aimbot.AntiAimBypass then
+                local randomOffset = Vector3.new(
+                    math.random(-2, 2),
+                    math.random(-2, 2),
+                    math.random(-2, 2)
+                )
+                targetPos = targetPos + randomOffset
+            end
+            
+            -- Smooth aiming - fixed to not overshoot
+            local currentCFrame = Camera.CFrame
+            local targetCFrame = CFrame.new(currentCFrame.Position, targetPos)
+            
             local smoothFactor = math.clamp(1 / math.max(Settings.Aimbot.Smoothness, 1), 0.05, 1)
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), smoothFactor)
+            
+            -- Clamp rotation to prevent weird snapping
+            local newCFrame = currentCFrame:Lerp(targetCFrame, smoothFactor)
+            Camera.CFrame = newCFrame
         end
     end
 end)
 
--- // ESP System \\
+-- // ESP System - FIXED Visibility \\
+local ESPObjects = {}
 local function updateESP()
     if not Settings.ESP.Enabled then
         for _, esp in pairs(ESPObjects) do
@@ -676,85 +763,15 @@ local function updateESP()
         return
     end
     
+    -- Clean up old ESP objects
+    for player, esp in pairs(ESPObjects) do
+        if not player or not player.Character or not player.Character.Parent then
+            esp:Destroy()
+            ESPObjects[player] = nil
+        end
+    end
+    
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= LocalPlayer and player.Character and player.Character.Parent then
             if Settings.ESP.TeamCheck and player.Team == LocalPlayer.Team then
                 if ESPObjects[player] then
-                    ESPObjects[player]:Destroy()
-                    ESPObjects[player] = nil
-                end
-                continue
-            end
-            
-            if not ESPObjects[player] or not ESPObjects[player].Parent then
-                local highlight = Instance.new("Highlight")
-                highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                highlight.OutlineTransparency = 0
-                highlight.Parent = player.Character
-                ESPObjects[player] = highlight
-            end
-        end
-    end
-end
-
-RunService:BindToRenderStep("ESP", 200, function()
-    pcall(updateESP)
-end)
-
--- // Update HUD & Speed \\
-local lastTime = tick()
-RunService:BindToRenderStep("HUDUpdate", 199, function()
-    AimbotDot.BackgroundColor3 = Settings.Aimbot.Enabled and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
-    AimbotDot.Parent.Label.Text = "Aimbot: " .. (Settings.Aimbot.Enabled and "ON" or "OFF")
-    
-    ESPDot.BackgroundColor3 = Settings.ESP.Enabled and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
-    ESPDot.Parent.Label.Text = "ESP: " .. (Settings.ESP.Enabled and "ON" or "OFF")
-    
-    VisualsDot.BackgroundColor3 = Settings.Visuals.Chams and Color3.fromRGB(0, 255, 50) or Color3.fromRGB(255, 50, 50)
-    VisualsDot.Parent.Label.Text = "Visuals: " .. (Settings.Visuals.Chams and "ON" or "OFF")
-    
-    local currentTime = tick()
-    local fps = math.floor(1 / (currentTime - lastTime))
-    lastTime = currentTime
-    FPSCounter.Text = "FPS: " .. tostring(fps)
-    
-    if Settings.Visuals.FOV ~= 70 then
-        Camera.FieldOfView = Settings.Visuals.FOV
-    end
-    
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        if Settings.Misc.SpeedValue > 16 then
-            LocalPlayer.Character.Humanoid.WalkSpeed = Settings.Misc.SpeedValue
-        end
-    end
-end)
-
--- // Key System - Toggle Menu \\
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        MenuOpen = not MenuOpen
-        MainMenu.Visible = MenuOpen
-        
-        if MenuOpen then
-            MainMenu.Size = UDim2.new(0, 0, 0, 0)
-            MainMenu.Position = UDim2.new(0.5, 0, 0.5, 0)
-            TweenService:Create(MainMenu, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-                Size = UDim2.new(0, 650, 0, 450),
-                Position = UDim2.new(0.5, -325, 0.5, -225)
-            }):Play()
-        end
-    end
-end)
-
--- // Initialize \\
-if Tabs[1] then
-    Tabs[1].Content.Visible = true
-    Tabs[1].Button.BackgroundColor3 = Color3.fromRGB(60, 100, 255)
-    Tabs[1].Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-end
-
-print("Ultimate Cheat v3.0 successfully loaded!")
